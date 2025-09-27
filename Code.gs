@@ -177,20 +177,35 @@ const dropdownManager = {
 
 const materialIDManager = {
   getOrCreateMaterialIDSheet: function() {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = spreadsheet.getSheetByName(CONFIG.MATERIAL_ID_MAP_SHEET);
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet(CONFIG.MATERIAL_ID_MAP_SHEET);
-      sheet.getRange(1, 1, 1, 2).setValues([['Material', 'ID Prefix']]);
-      sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
-      const initialData = [];
-      for (const [material, prefix] of Object.entries(CONFIG.INITIAL_MATERIAL_ID_MAP)) {
-        initialData.push([material, prefix]);
-      }
-      if (initialData.length > 0) sheet.getRange(2, 1, initialData.length, 2).setValues(initialData);
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(CONFIG.MATERIAL_ID_MAP_SHEET);
+  
+  if (!sheet) {
+    // Create new sheet
+    sheet = spreadsheet.insertSheet(CONFIG.MATERIAL_ID_MAP_SHEET);
+    sheet.getRange(1, 1, 1, 2).setValues([['Material', 'ID Prefix']]);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    
+    // Add initial data
+    const initialData = [];
+    for (const [material, prefix] of Object.entries(CONFIG.INITIAL_MATERIAL_ID_MAP)) {
+      initialData.push([material, prefix]);
     }
-    return sheet;
-  },
+    if (initialData.length > 0) {
+      sheet.getRange(2, 1, initialData.length, 2).setValues(initialData);
+    }
+    
+    // Hide the sheet
+    sheet.hideSheet();
+  } else {
+    // Ensure existing sheet is hidden
+    if (!sheet.isSheetHidden()) {
+      sheet.hideSheet();
+    }
+  }
+  
+  return sheet;
+},
 
   getMaterialIDMap: function() {
     const sheet = this.getOrCreateMaterialIDSheet();
