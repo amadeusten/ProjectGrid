@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            font-size: 13px;
+        }
+        .comment-box {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .comment-box:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+        .post-btn {
+            background-color: #6366f1;
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s;
+        }
+        .post-btn:hover {
+            background-color: #4f46e5;
+        }
+        .post-btn:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .asset-info {
+            background-color: #fef2f2;
+            border-left: 3px solid #FF2093;
+            padding: 10px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+        .asset-info p {
+            margin: 0;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+        .asset-info p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="asset-info">
+        <p class="text-gray-700"><strong>Asset:</strong> <span id="asset-name"></span></p>
+        <p class="text-gray-700"><strong>ID:</strong> <span id="asset-id"></span></p>
+        <p class="text-gray-700"><strong>Status:</strong> <span style="color: #FF2093; font-weight: 600;">Requires Attn - HX</span></p>
+    </div>
+
+    <div class="mb-3">
+        <textarea 
+            id="comment-text" 
+            class="comment-box" 
+            placeholder="Add your comment..."
+        ></textarea>
+    </div>
+
+    <div class="flex justify-end">
+        <button id="post-btn" class="post-btn">
+            Send
+        </button>
+    </div>
+
+    <script>
+        // Get asset data from window
+        const assetData = window.assetData || {};
+        
+        document.getElementById('asset-name').textContent = assetData.assetName || 'N/A';
+        document.getElementById('asset-id').textContent = assetData.assetId || 'N/A';
+
+        const commentText = document.getElementById('comment-text');
+        const postBtn = document.getElementById('post-btn');
+
+        postBtn.addEventListener('click', function() {
+            const comment = commentText.value.trim();
+            
+            if (!comment) {
+                alert('Please enter a comment before sending.');
+                return;
+            }
+
+            // Disable button and show loading state
+            postBtn.disabled = true;
+            postBtn.textContent = 'Sending...';
+
+            // Send comment data back to server
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    if (result.success) {
+                        google.script.host.close();
+                    } else {
+                        alert('Error: ' + result.message);
+                        postBtn.disabled = false;
+                        postBtn.textContent = 'Send';
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    alert('Error sending notification: ' + error.message);
+                    postBtn.disabled = false;
+                    postBtn.textContent = 'Send';
+                })
+                .sendHXNotification({
+                    row: assetData.row,
+                    assetId: assetData.assetId,
+                    assetName: assetData.assetName,
+                    item: assetData.item,
+                    material: assetData.material,
+                    comment: comment
+                });
+        });
+
+        // Focus on textarea when dialog opens
+        setTimeout(() => {
+            commentText.focus();
+        }, 100);
+    </script>
+</body>
+</html>
