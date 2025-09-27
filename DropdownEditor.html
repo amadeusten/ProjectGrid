@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: white;
+        }
+        .accordion-item {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .accordion-header {
+            cursor: pointer;
+            padding: 12px 16px;
+            background: #f9fafb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-header:hover {
+            background: #f3f4f6;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .accordion-content.active {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .dropdown-list-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .dropdown-list-item input {
+            flex: 1;
+        }
+        .dropdown-list-item button {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="p-4 border-b bg-white">
+        <h2 class="text-lg font-semibold text-gray-800">Dropdown Options</h2>
+        <p class="text-xs text-gray-500 mt-1">Manage all dropdown lists</p>
+    </div>
+    
+    <div class="overflow-y-auto" style="height: calc(100vh - 73px);">
+        <!-- Item Accordion -->
+        <div class="accordion-item">
+            <div class="accordion-header" data-accordion="item">
+                <span class="text-sm font-medium">Item</span>
+                <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="accordion-content" id="item-accordion-content">
+                <div id="item-list" class="py-2"></div>
+                <div class="p-4 bg-gray-50">
+                    <button id="add-new-item-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Item</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Material Accordion -->
+        <div class="accordion-item">
+            <div class="accordion-header" data-accordion="material">
+                <span class="text-sm font-medium">Material</span>
+                <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="accordion-content" id="material-accordion-content">
+                <div id="material-list" class="py-2"></div>
+                <div class="p-4 bg-gray-50">
+                    <button id="add-new-material-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Material</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Accordion -->
+        <div class="accordion-item">
+            <div class="accordion-header" data-accordion="status">
+                <span class="text-sm font-medium">Status</span>
+                <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="accordion-content" id="status-accordion-content">
+                <div id="status-list" class="py-2"></div>
+                <div class="p-4 bg-gray-50">
+                    <button id="add-new-status-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Status</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Venue Accordion -->
+        <div class="accordion-item">
+            <div class="accordion-header" data-accordion="venue">
+                <span class="text-sm font-medium">Venue</span>
+                <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="accordion-content" id="venue-accordion-content">
+                <div id="venue-list" class="py-2"></div>
+                <div class="p-4 bg-gray-50">
+                    <button id="add-new-venue-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Venue</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Area Accordion -->
+        <div class="accordion-item">
+            <div class="accordion-header" data-accordion="area">
+                <span class="text-sm font-medium">Area</span>
+                <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="accordion-content" id="area-accordion-content">
+                <div id="area-list" class="py-2"></div>
+                <div class="p-4 bg-gray-50">
+                    <button id="add-new-area-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Area</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dropdownData = {};
+
+        // Load dropdown data
+        google.script.run
+            .withSuccessHandler(function(data) {
+                dropdownData = data;
+            })
+            .getDropdownData();
+
+        // Accordion functionality
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', function() {
+                const accordionType = this.getAttribute('data-accordion');
+                const content = document.getElementById(`${accordionType}-accordion-content`);
+                const svg = this.querySelector('svg');
+                
+                content.classList.toggle('active');
+                svg.classList.toggle('rotate-180');
+                
+                if (content.classList.contains('active')) {
+                    loadDrawerItems(accordionType);
+                }
+            });
+        });
+
+        function loadDrawerItems(fieldType) {
+            const fieldMap = {
+                'item': 'items',
+                'material': 'materials',
+                'status': 'statuses',
+                'venue': 'venues',
+                'area': 'areas'
+            };
+            
+            const listContainer = document.getElementById(`${fieldType}-list`);
+            listContainer.innerHTML = '<div class="text-center py-4 text-sm text-gray-500">Loading...</div>';
+            
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    dropdownData = data;
+                    const values = dropdownData[fieldMap[fieldType]] || [];
+                    
+                    listContainer.innerHTML = '';
+                    
+                    values.forEach(value => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'dropdown-list-item';
+                        itemDiv.innerHTML = `
+                            <input type="text" value="${value}" data-original="${value}" class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm" />
+                            <button class="save-btn hidden bg-green-600 text-white rounded hover:bg-green-700">Save</button>
+                            <button class="delete-btn bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                        `;
+                        
+                        const input = itemDiv.querySelector('input');
+                        const saveBtn = itemDiv.querySelector('.save-btn');
+                        const deleteBtn = itemDiv.querySelector('.delete-btn');
+                        
+                        input.addEventListener('input', function() {
+                            if (this.value !== this.getAttribute('data-original')) {
+                                saveBtn.classList.remove('hidden');
+                            } else {
+                                saveBtn.classList.add('hidden');
+                            }
+                        });
+                        
+                        saveBtn.addEventListener('click', function() {
+                            const oldValue = input.getAttribute('data-original');
+                            const newValue = input.value.trim();
+                            
+                            if (newValue && newValue !== oldValue) {
+                                google.script.run
+                                    .withSuccessHandler(function(result) {
+                                        if (result.success) {
+                                            input.setAttribute('data-original', newValue);
+                                            saveBtn.classList.add('hidden');
+                                            
+                                            google.script.run
+                                                .withSuccessHandler(function(data) {
+                                                    dropdownData = data;
+                                                })
+                                                .getDropdownData();
+                                        } else {
+                                            alert('Error: ' + result.message);
+                                        }
+                                    })
+                                    .updateDropdownValue(fieldMap[fieldType], oldValue, newValue);
+                            }
+                        });
+                        
+                        deleteBtn.addEventListener('click', function() {
+                            if (confirm(`Delete "${value}"?`)) {
+                                google.script.run
+                                    .withSuccessHandler(function(result) {
+                                        if (result.success) {
+                                            itemDiv.remove();
+                                            
+                                            google.script.run
+                                                .withSuccessHandler(function(data) {
+                                                    dropdownData = data;
+                                                })
+                                                .getDropdownData();
+                                        } else {
+                                            alert('Error: ' + result.message);
+                                        }
+                                    })
+                                    .deleteDropdownValue(fieldMap[fieldType], value);
+                            }
+                        });
+                        
+                        listContainer.appendChild(itemDiv);
+                    });
+                })
+                .getDropdownData();
+        }
+
+        // Add new item buttons
+        ['item', 'material', 'status', 'venue', 'area'].forEach(fieldType => {
+            document.getElementById(`add-new-${fieldType}-drawer`).addEventListener('click', function() {
+                const newValue = prompt(`Enter new ${fieldType}:`);
+                if (newValue && newValue.trim()) {
+                    const fieldMap = {
+                        'item': 'items',
+                        'material': 'materials',
+                        'status': 'statuses',
+                        'venue': 'venues',
+                        'area': 'areas'
+                    };
+                    
+                    google.script.run
+                        .withSuccessHandler(function(result) {
+                            if (result.success) {
+                                loadDrawerItems(fieldType);
+                                
+                                google.script.run
+                                    .withSuccessHandler(function(data) {
+                                        dropdownData = data;
+                                    })
+                                    .getDropdownData();
+                            } else {
+                                alert('Error: ' + result.message);
+                            }
+                        })
+                        .addNewDropdownValue(fieldMap[fieldType], newValue.trim());
+                }
+            });
+        });
+    </script>
+</body>
+</html>
