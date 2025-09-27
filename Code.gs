@@ -1,4 +1,77 @@
-/**
+function handleEdit(e) {
+  const sheet = e.source.getActiveSheet();
+  
+  if (sheet.getName() !== CONFIG.MASTER_SHEET_NAME) return;
+  
+  const range = e.range;
+  const row = range.getRow();
+  
+  // Don't process header row
+  if (row < 2) return;
+  
+  // Ensure checkboxes exist in columns N and O for edited row
+  ensureCheckboxesInRow(sheet, row);
+  
+  // Handle status column formatting and sorting
+  if (range.getColumn() === CONFIG.COLUMN_MAP.STATUS) {
+    const newStatus = range.getValue();
+    const rowRange = sheet.getRange(row, 1, 1, 16);
+    
+    if (newStatus === 'New Asset') {
+      // Set entire row to blue
+      rowRange.setFontColor('#0062e2');
+    } else if (newStatus === 'Requires Attn - HX') {
+      // Set entire row to pink
+      rowRange.setFontColor('#FF2093');
+      // Show comment dialog for HX team notification
+      showHXCommentDialog(sheet, row);
+    } else if (newStatus && newStatus !== 'New Asset' && newStatus !== 'Requires Attn - HX') {
+      // Reset to black text
+      rowRange.setFontColor('#000000');
+    }
+    
+    // Always sort after status change
+    ensureNewAssetsAtTop(sheet);
+  }
+  
+  // Also check if any other column was edited - if the status is already "New Asset", ensure formatting
+  if (range.getColumn() !== CONFIG.COLUMN_MAP.STATUS && range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) {
+    const statusCell = sheet.getRange(row, CONFIG.COLUMN_MAP.STATUS);
+    const currentStatus = statusCell.getValue();
+    
+    if (currentStatus === 'New Asset') {
+      const rowRange = sheet.getRange(row, 1, 1, 16);
+      rowRange.setFontColor('#0062e2');
+    } else if (currentStatus === 'Requires Attn - HX') {
+      const rowRange = sheet.getRange(row, 1, 1, 16);
+      rowRange.setFontColor('#FF2093');
+    }
+  }
+  
+  // Log any edit to the row (unless it's column P being edited)
+  if (range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) {
+    logRowEdit(sheet, row);
+  }
+}
+
+function ensureCheckboxesInRow(sheet, row) {
+  try {
+    const doubleSidedCell = sheet.getRange(row, CONFIG.COLUMN_MAP.DOUBLE_SIDED);
+    const diecutCell = sheet.getRange(row, CONFIG.COLUMN_MAP.DIECUT);
+    
+    // Check if checkbox exists in Double Sided column (N)
+    if (doubleSidedCell.getDataValidation() === null) {
+      doubleSidedCell.insertCheckboxes();
+    }
+    
+    // Check if checkbox exists in Diecut column (O)
+    if (diecutCell.getDataValidation() === null) {
+      diecutCell.insertCheckboxes();
+    }
+  } catch (error) {
+    console.error('Error ensuring checkboxes:', error);
+  }
+}/**
  * @OnlyCurrentDoc
  * Asset Management System with Google Drive Integration and Two-Way Sync
  */
@@ -39,15 +112,15 @@ const CONFIG = {
   },
   
   MATERIAL_ID_MAP: {
-    'Gatorplast 3/16"': 'A',
-    'Gatorplast 1/2"': 'B',
-    'Wall & Window Vinyl - Matte': 'C',
-    'Bar Wrap Vinyl - Matte': 'D',
-    'Heavy Cardstock': 'E',
-    'Static Cling - White': 'F',
-    'Static Cling - Clear': 'G',
-    'PVC 1/8"': 'H',
-    'Fabrication': 'I'
+    'Adhesive Vinyl - Matte': 'A',
+    'Foamcore - 1/4"': 'B',
+    'Foamcore - 1/2"': 'C',
+    'Gatorplast - 1/4"': 'D',
+    'Gatorplast - 1/2"': 'E',
+    'Cardstock - Heavy': 'F',
+    'Cardstock - Regular': 'G',
+    'Fabrication': 'H',
+    'Fabric': 'I'
   }
 };
 
@@ -473,6 +546,14 @@ const projectSheet = {
     return `${prefix}${nextNumber}`;
   },
 
+  getMaterialPrefix: function(material) {
+    return CONFIG.MATERIAL_ID_MAP[material] || 'Z';
+  },
+
+  getNextIdForMaterial: function(material) {
+    return this.getNextId(material);
+  },
+
   formatDate: function(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -725,6 +806,7 @@ function onOpen() {
       .addItem('Edit Selected Row', 'editSelectedRow')
       .addSeparator()
       .addItem('Setup Auto-Sort', 'setupAutoSort')
+      .addItem('Setup File Renaming Trigger', 'setupFileRenamingTrigger')
       .addToUi();
   
   // Ensure triggers are set up
@@ -752,6 +834,103 @@ function setupAutoSort() {
     .forSpreadsheet(SpreadsheetApp.getActive())
     .onChange()
     .create();
+}
+
+function setupFileRenamingTrigger() {
+  try {
+    // Remove existing file renaming triggers
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'checkAndRenameFiles') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+    
+    // Create time-driven trigger to check for files every 5 minutes
+    ScriptApp.newTrigger('checkAndRenameFiles')
+      .timeBased()
+      .everyMinutes(5)
+      .create();
+    
+    SpreadsheetApp.getUi().alert(
+      'File Renaming Trigger Setup',
+      'File renaming trigger has been set up successfully!\n\nFiles in the "0 - Initial Files" folder will be automatically renamed every 5 minutes.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  } catch (error) {
+    SpreadsheetApp.getUi().alert(
+      'Error',
+      'Failed to setup file renaming trigger: ' + error.message,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
+}
+
+function checkAndRenameFiles() {
+  try {
+    // Get the main drive folder
+    const mainFolder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
+    
+    // Find the "0 - Initial Files" subfolder
+    const subfolders = mainFolder.getFoldersByName(CONFIG.INITIAL_FILES_FOLDER_NAME);
+    
+    if (!subfolders.hasNext()) {
+      console.log('Initial Files folder not found');
+      return;
+    }
+    
+    const initialFilesFolder = subfolders.next();
+    
+    // Get the spreadsheet to lookup asset names
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.MASTER_SHEET_NAME);
+    if (!sheet) return;
+    
+    // Get all files in the folder
+    const files = initialFilesFolder.getFiles();
+    
+    while (files.hasNext()) {
+      const file = files.next();
+      const fileName = file.getName();
+      
+      // Extract ID from filename (everything before the first dot or end of string)
+      const idMatch = fileName.match(/^([A-Z]\d+)/);
+      
+      if (idMatch) {
+        const assetId = idMatch[1];
+        
+        // Find the asset in the spreadsheet
+        const dataRange = sheet.getDataRange();
+        const values = dataRange.getValues();
+        
+        for (let i = 1; i < values.length; i++) {
+          const rowId = values[i][CONFIG.COLUMN_MAP.ID - 1];
+          
+          if (rowId === assetId) {
+            const assetName = values[i][CONFIG.COLUMN_MAP.ASSET - 1];
+            
+            if (assetName) {
+              // Get file extension
+              const lastDotIndex = fileName.lastIndexOf('.');
+              const extension = lastDotIndex > -1 ? fileName.substring(lastDotIndex) : '';
+              
+              // Create new filename: ID_PROJECTCODE_AssetName.ext
+              const sanitizedAssetName = assetName.toString().replace(/[^a-zA-Z0-9_-]/g, '_');
+              const newFileName = `${assetId}_${CONFIG.PROJECT_CODE}_${sanitizedAssetName}${extension}`;
+              
+              // Only rename if the name is different
+              if (fileName !== newFileName) {
+                file.setName(newFileName);
+                console.log(`Renamed: ${fileName} -> ${newFileName}`);
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in checkAndRenameFiles:', error);
+  }
 }
 
 function onEditInstallable(e) {
@@ -785,7 +964,12 @@ function handleEdit(e) {
     if (newStatus === 'New Asset') {
       // Set entire row to blue
       rowRange.setFontColor('#0062e2');
-    } else if (newStatus && newStatus !== 'New Asset') {
+    } else if (newStatus === 'Requires Attn - HX') {
+      // Set entire row to pink
+      rowRange.setFontColor('#FF2093');
+      // Show comment dialog for HX team notification
+      showHXCommentDialog(sheet, row);
+    } else if (newStatus && newStatus !== 'New Asset' && newStatus !== 'Requires Attn - HX') {
       // Reset to black text
       rowRange.setFontColor('#000000');
     }
@@ -802,6 +986,9 @@ function handleEdit(e) {
     if (currentStatus === 'New Asset') {
       const rowRange = sheet.getRange(row, 1, 1, 16);
       rowRange.setFontColor('#0062e2');
+    } else if (currentStatus === 'Requires Attn - HX') {
+      const rowRange = sheet.getRange(row, 1, 1, 16);
+      rowRange.setFontColor('#FF2093');
     }
   }
   
@@ -809,6 +996,125 @@ function handleEdit(e) {
   if (range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) {
     logRowEdit(sheet, row);
   }
+}
+
+function showHXCommentDialog(sheet, row) {
+  try {
+    // Get asset details
+    const rowData = sheet.getRange(row, 1, 1, 16).getValues()[0];
+    const assetId = rowData[CONFIG.COLUMN_MAP.ID - 1];
+    const assetName = rowData[CONFIG.COLUMN_MAP.ASSET - 1];
+    const material = rowData[CONFIG.COLUMN_MAP.MATERIAL - 1];
+    const item = rowData[CONFIG.COLUMN_MAP.ITEM - 1];
+    
+    // Create the dialog
+    const htmlOutput = HtmlService.createHtmlOutputFromFile('HXCommentDialog')
+        .setWidth(420)
+        .setHeight(280);
+    
+    // Inject asset data into the dialog
+    const htmlContent = htmlOutput.getContent();
+    const modifiedContent = htmlContent.replace(
+      '<script>',
+      `<script>window.assetData = ${JSON.stringify({
+        row: row,
+        assetId: assetId || 'N/A',
+        assetName: assetName || 'N/A',
+        item: item || 'N/A',
+        material: material || 'N/A'
+      })};`
+    );
+    
+    const modifiedOutput = HtmlService.createHtmlOutput(modifiedContent)
+        .setWidth(420)
+        .setHeight(280);
+    
+    const ui = SpreadsheetApp.getUi();
+    ui.showModalDialog(modifiedOutput, '⚠️ HX Attention Required');
+    
+  } catch (error) {
+    console.error('Error showing HX comment dialog:', error);
+  }
+}
+
+function sendHXNotification(data) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.MASTER_SHEET_NAME);
+    const row = data.row;
+    
+    // Send email notifications
+    const spreadsheetUrl = SpreadsheetApp.getActiveSpreadsheet().getUrl();
+    const sheetName = sheet.getName();
+    const cellReference = `${sheetName}!D${row}`;
+    const directLink = `${spreadsheetUrl}#gid=${sheet.getSheetId()}&range=D${row}`;
+    
+    const emailSubject = `🚨 HX Attention Required - Asset ${data.assetId}`;
+    const emailBody = `
+      <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+          <h2 style="color: #FF2093;">⚠️ Asset Requires Attention</h2>
+          
+          <div style="background-color: #fef2f2; padding: 15px; border-left: 4px solid #FF2093; margin: 20px 0;">
+            <p><strong>Asset Name:</strong> ${data.assetName}</p>
+            <p><strong>Asset ID:</strong> ${data.assetId}</p>
+            <p><strong>Item:</strong> ${data.item}</p>
+            <p><strong>Material:</strong> ${data.material}</p>
+            <p><strong>Location:</strong> ${cellReference}</p>
+          </div>
+          
+          <div style="background-color: #f9fafb; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Comment:</strong></p>
+            <p style="margin: 10px 0 0 0; white-space: pre-wrap;">${data.comment}</p>
+          </div>
+          
+          <p>This asset has been flagged as <strong style="color: #FF2093;">"Requires Attn - HX"</strong> and needs your immediate attention.</p>
+          
+          <p style="margin-top: 30px;">
+            <a href="${directLink}" style="background-color: #FF2093; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">View Asset in Spreadsheet</a>
+          </p>
+          
+          <hr style="margin-top: 30px; border: none; border-top: 1px solid #ddd;">
+          <p style="font-size: 12px; color: #666;">
+            This is an automated notification from the BBLMW25 Asset Management System.
+          </p>
+        </body>
+      </html>
+    `;
+    
+    // Send to diana@hxecute.com
+    try {
+      MailApp.sendEmail({
+        to: 'diana@hxecute.com',
+        subject: emailSubject,
+        htmlBody: emailBody
+      });
+    } catch (emailError) {
+      console.error('Error sending email to diana@hxecute.com:', emailError);
+    }
+    
+    // Send to heather@hxecute.com
+    try {
+      MailApp.sendEmail({
+        to: 'heather@hxecute.com',
+        subject: emailSubject,
+        htmlBody: emailBody
+      });
+    } catch (emailError) {
+      console.error('Error sending email to heather@hxecute.com:', emailError);
+    }
+    
+    return { success: true, message: 'Notifications sent successfully' };
+    
+  } catch (error) {
+    console.error('Error sending HX notification:', error);
+    return { success: false, message: error.toString() };
+  }
+}
+
+function createHXAttentionComment(sheet, row) {
+  // This function is deprecated - replaced by showHXCommentDialog
+  // Kept for backwards compatibility
+  showHXCommentDialog(sheet, row);
 }
 
 function ensureNewAssetsAtTop(sheet) {
@@ -824,13 +1130,21 @@ function ensureNewAssetsAtTop(sheet) {
   const otherRows = [];
   
   values.forEach((row, index) => {
-    if (row[CONFIG.COLUMN_MAP.STATUS - 1] === 'New Asset') {
+    const status = row[CONFIG.COLUMN_MAP.STATUS - 1];
+    const rowNum = index + 2;
+    
+    if (status === 'New Asset') {
       newAssetRows.push(row);
       // Ensure blue formatting
-      const rowNum = index + 2;
       sheet.getRange(rowNum, 1, 1, 16).setFontColor('#0062e2');
+    } else if (status === 'Requires Attn - HX') {
+      otherRows.push(row);
+      // Ensure pink formatting
+      sheet.getRange(rowNum, 1, 1, 16).setFontColor('#FF2093');
     } else {
       otherRows.push(row);
+      // Ensure black formatting for other statuses
+      sheet.getRange(rowNum, 1, 1, 16).setFontColor('#000000');
     }
   });
   
@@ -1061,6 +1375,14 @@ function uploadFileToDrive(fileData, folderId, fileName) {
 
 function addAssetToProject(assetData) {
   return assetApp.addToProject(assetData);
+}
+
+function getMaterialPrefix(material) {
+  return projectSheet.getMaterialPrefix(material);
+}
+
+function getNextIdForMaterial(material) {
+  return projectSheet.getNextIdForMaterial(material);
 }
 
 function getRowDataForEdit(rowNumber) {
