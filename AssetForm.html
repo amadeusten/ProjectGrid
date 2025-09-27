@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .add-link {
+            color: #2563eb;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .add-link:hover {
+            color: #1d4ed8;
+        }
+        .hidden { display: none; }
+        #side-drawer {
+            transition: transform 0.3s ease-in-out;
+        }
+        .accordion-item {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .accordion-header {
+            cursor: pointer;
+            padding: 12px 16px;
+            background: #f9fafb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-header:hover {
+            background: #f3f4f6;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .accordion-content.active {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .dropdown-list-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .dropdown-list-item input {
+            flex: 1;
+        }
+        .dropdown-list-item button {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="flex">
+        <!-- Main Form Content -->
+        <div class="flex-1">
+            <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                <h1 class="text-2xl font-semibold text-gray-800 mb-6">BBLMW25 : Add New Asset</h1>
+
+                <!-- Asset Details Section -->
+                <div class="mb-6">
+                    <h2 class="text-base font-semibold text-gray-800 mb-4">Asset Details</h2>
+                    
+                    <!-- Item -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Item</label>
+                        <select id="item-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Item</option>
+                        </select>
+                        <input id="item-input" type="text" class="hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-2" placeholder="Enter new item" />
+                        <a id="add-item-link" class="add-link mt-1">+ Add New Item</a>
+                    </div>
+
+                    <!-- Material -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Material</label>
+                        <select id="material-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Material</option>
+                        </select>
+                        <input id="material-input" type="text" class="hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-2" placeholder="Enter new material" />
+                        <a id="add-material-link" class="add-link mt-1">+ Add New Material</a>
+                    </div>
+
+                    <!-- Asset Name -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Asset Name</label>
+                        <input id="asset-name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+
+                    <!-- Quantity -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Quantity</label>
+                        <input id="quantity" type="number" min="1" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+
+                    <!-- Width and Height -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 block mb-1">Width</label>
+                            <input id="width" type="number" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 block mb-1">Height</label>
+                            <input id="height" type="number" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                        </div>
+                    </div>
+
+                    <!-- Die Cut and Double Sided Checkboxes -->
+                    <div class="flex gap-6 mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="die-cut" class="mr-2 h-4 w-4 text-blue-600">
+                            <span class="text-sm text-gray-700">Die Cut Decal</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="double-sided" class="mr-2 h-4 w-4 text-blue-600">
+                            <span class="text-sm text-gray-700">Double Sided</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Production Details Section -->
+                <div class="mb-6">
+                    <h2 class="text-base font-semibold text-gray-800 mb-4">Production Details</h2>
+                    
+                    <!-- Status -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Status</label>
+                        <select id="status-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Status</option>
+                        </select>
+                        <input id="status-input" type="text" class="hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-2" placeholder="Enter new status" />
+                        <a id="add-status-link" class="add-link mt-1">+ Add New Status</a>
+                    </div>
+
+                    <!-- In-Hands Date and Strike Date -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 block mb-1">In-Hands Date</label>
+                            <input id="due-date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 block mb-1">Strike Date</label>
+                            <input id="strike-date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Installation Details Section -->
+                <div class="mb-6">
+                    <h2 class="text-base font-semibold text-gray-800 mb-4">Installation Details</h2>
+                    
+                    <!-- Venue -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Venue</label>
+                        <select id="venue-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Venue</option>
+                        </select>
+                        <input id="venue-input" type="text" class="hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-2" placeholder="Enter new venue" />
+                        <a id="add-venue-link" class="add-link mt-1">+ Add New Venue</a>
+                    </div>
+
+                    <!-- Area -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Area</label>
+                        <select id="area-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Area</option>
+                        </select>
+                        <input id="area-input" type="text" class="hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-2" placeholder="Enter new area" />
+                        <a id="add-area-link" class="add-link mt-1">+ Add New Area</a>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Location</label>
+                        <input id="location" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+                </div>
+
+                <!-- File Upload Section -->
+                <div class="mb-6">
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                        <div class="mb-4">
+                            <label class="text-sm font-medium text-gray-700 block mb-2">Select Folder</label>
+                            <select id="folder-dropdown" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                <option value="">Select Folder</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">File Upload</span>
+                            <label for="file-input" class="bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 cursor-pointer">
+                                Select File
+                            </label>
+                            <input id="file-input" type="file" class="hidden" />
+                        </div>
+                        <div id="file-name" class="text-sm text-gray-500 mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- Add to Project Button -->
+                <div class="flex justify-center">
+                    <button id="add-to-project-btn" class="bg-blue-600 text-white px-8 py-3 rounded-md text-base font-medium hover:bg-blue-700">
+                        Add to Project
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side Drawer Trigger -->
+        <div id="drawer-trigger" class="w-12 bg-gray-50 hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center" style="box-shadow: -4px 0 12px -4px rgba(0,0,0,0.05)">
+            <div class="flex flex-col items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <span class="text-xs font-medium text-gray-500" style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">Options</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Side Drawer for Dropdown Management -->
+    <div id="side-drawer" class="fixed top-0 right-0 h-full w-80 bg-white shadow-xl transform translate-x-full z-50">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-gray-800">Dropdown Options</h2>
+            <button id="close-drawer" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        </div>
+        
+        <div class="overflow-y-auto" style="height: calc(100% - 73px);">
+            <!-- Item Accordion -->
+            <div class="accordion-item">
+                <div class="accordion-header" data-accordion="item">
+                    <span class="text-sm font-medium">Item</span>
+                    <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                <div class="accordion-content" id="item-accordion-content">
+                    <div id="item-list" class="py-2"></div>
+                    <div class="p-4 bg-gray-50">
+                        <button id="add-new-item-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Item</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Material Accordion -->
+            <div class="accordion-item">
+                <div class="accordion-header" data-accordion="material">
+                    <span class="text-sm font-medium">Material</span>
+                    <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                <div class="accordion-content" id="material-accordion-content">
+                    <div id="material-list" class="py-2"></div>
+                    <div class="p-4 bg-gray-50">
+                        <button id="add-new-material-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Material</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Accordion -->
+            <div class="accordion-item">
+                <div class="accordion-header" data-accordion="status">
+                    <span class="text-sm font-medium">Status</span>
+                    <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                <div class="accordion-content" id="status-accordion-content">
+                    <div id="status-list" class="py-2"></div>
+                    <div class="p-4 bg-gray-50">
+                        <button id="add-new-status-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Status</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Venue Accordion -->
+            <div class="accordion-item">
+                <div class="accordion-header" data-accordion="venue">
+                    <span class="text-sm font-medium">Venue</span>
+                    <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                <div class="accordion-content" id="venue-accordion-content">
+                    <div id="venue-list" class="py-2"></div>
+                    <div class="p-4 bg-gray-50">
+                        <button id="add-new-venue-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Venue</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area Accordion -->
+            <div class="accordion-item">
+                <div class="accordion-header" data-accordion="area">
+                    <span class="text-sm font-medium">Area</span>
+                    <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                <div class="accordion-content" id="area-accordion-content">
+                    <div id="area-list" class="py-2"></div>
+                    <div class="p-4 bg-gray-50">
+                        <button id="add-new-area-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Area</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dropdownData = {};
+        let driveFolders = [];
+        let selectedFile = null;
+        let isEditMode = false;
+        let originalRowNumber = null;
+
+        // Check for edit mode
+        if (window.editFormData) {
+            isEditMode = true;
+            originalRowNumber = window.editFormData.originalRowNumber;
+            document.querySelector('h1').textContent = 'Edit Asset';
+            document.getElementById('add-to-project-btn').textContent = 'Update Project';
+        }
+
+        // Load dropdown data
+        google.script.run
+            .withSuccessHandler(function(data) {
+                dropdownData = data;
+                populateDropdowns();
+                
+                // If in edit mode, populate form after dropdowns are loaded
+                if (isEditMode && window.editFormData) {
+                    populateFormData(window.editFormData);
+                }
+            })
+            .getDropdownData();
+
+        // Load Drive folders
+        google.script.run
+            .withSuccessHandler(function(folders) {
+                driveFolders = folders;
+                const folderDropdown = document.getElementById('folder-dropdown');
+                folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = folder.name;
+                    folderDropdown.appendChild(option);
+                });
+            })
+            .getDriveFolders();
+
+        function populateDropdowns() {
+            // Populate all dropdowns
+            ['items', 'materials', 'statuses', 'venues', 'areas'].forEach(field => {
+                const dropdown = document.getElementById(`${field === 'items' ? 'item' : field === 'materials' ? 'material' : field === 'statuses' ? 'status' : field === 'venues' ? 'venue' : 'area'}-dropdown`);
+                
+                if (dropdownData[field]) {
+                    dropdownData[field].forEach(value => {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = value;
+                        dropdown.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        // Setup "Add New" links functionality
+        function setupAddLink(fieldName) {
+            const addLink = document.getElementById(`add-${fieldName}-link`);
+            const dropdown = document.getElementById(`${fieldName}-dropdown`);
+            const input = document.getElementById(`${fieldName}-input`);
+
+            addLink.addEventListener('click', function() {
+                if (dropdown.classList.contains('hidden')) {
+                    dropdown.classList.remove('hidden');
+                    input.classList.add('hidden');
+                    input.value = '';
+                    this.textContent = `+ Add New ${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`;
+                } else {
+                    dropdown.classList.add('hidden');
+                    input.classList.remove('hidden');
+                    input.focus();
+                    this.textContent = 'Cancel';
+                }
+            });
+
+            input.addEventListener('blur', function() {
+                if (this.value.trim()) {
+                    addNewValue(fieldName, this.value.trim());
+                }
+            });
+
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (this.value.trim()) {
+                        addNewValue(fieldName, this.value.trim());
+                    }
+                }
+            });
+        }
+
+        function addNewValue(fieldName, value) {
+            const fieldMap = {
+                'item': 'items',
+                'material': 'materials',
+                'status': 'statuses',
+                'venue': 'venues',
+                'area': 'areas'
+            };
+
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    if (result.success) {
+                        const dropdown = document.getElementById(`${fieldName}-dropdown`);
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = value;
+                        option.selected = true;
+                        dropdown.appendChild(option);
+
+                        dropdown.classList.remove('hidden');
+                        const input = document.getElementById(`${fieldName}-input`);
+                        input.classList.add('hidden');
+                        input.value = '';
+                        
+                        const addLink = document.getElementById(`add-${fieldName}-link`);
+                        addLink.textContent = `+ Add New ${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`;
+                    } else {
+                        alert(result.message || 'Error adding value');
+                    }
+                })
+                .addNewDropdownValue(fieldMap[fieldName], value);
+        }
+
+        // Setup all add links
+        ['item', 'material', 'status', 'venue', 'area'].forEach(field => {
+            setupAddLink(field);
+        });
+
+        // File upload handling
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                document.getElementById('file-name').textContent = selectedFile.name;
+            }
+        });
+
+        // Form submission
+        document.getElementById('add-to-project-btn').addEventListener('click', function() {
+            const formData = collectFormData();
+            
+            if (!validateForm(formData)) {
+                return;
+            }
+
+            const button = this;
+            button.disabled = true;
+            button.textContent = isEditMode ? 'Updating...' : 'Adding...';
+            button.classList.add('opacity-50');
+
+            if (selectedFile) {
+                const folderId = document.getElementById('folder-dropdown').value;
+                
+                if (!folderId) {
+                    alert('Please select a folder for the file upload');
+                    button.disabled = false;
+                    button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
+                    button.classList.remove('opacity-50');
+                    return;
+                }
+
+                const id = formData.material === 'Gatorplast 3/16"' ? 'A' : 'B';
+                const projectCode = '19026BB';
+                const assetName = formData.asset.replace(/\s+/g, '_');
+                const fileName = `${id}_${projectCode}_${assetName}`;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    google.script.run
+                        .withSuccessHandler(function(uploadResult) {
+                            if (uploadResult.success) {
+                                formData.artworkUrl = uploadResult.fileUrl;
+                                submitToProject(formData, button);
+                            } else {
+                                alert('Error uploading file: ' + uploadResult.message);
+                                button.disabled = false;
+                                button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
+                                button.classList.remove('opacity-50');
+                            }
+                        })
+                        .uploadFileToDrive(e.target.result, folderId, fileName);
+                };
+                reader.readAsDataURL(selectedFile);
+            } else {
+                submitToProject(formData, button);
+            }
+        });
+
+        function collectFormData() {
+            const formData = {
+                item: document.getElementById('item-dropdown').value || document.getElementById('item-input').value,
+                material: document.getElementById('material-dropdown').value || document.getElementById('material-input').value,
+                asset: document.getElementById('asset-name').value,
+                quantity: document.getElementById('quantity').value,
+                width: document.getElementById('width').value,
+                height: document.getElementById('height').value,
+                dieCut: document.getElementById('die-cut').checked,
+                doubleSided: document.getElementById('double-sided').checked,
+                status: document.getElementById('status-dropdown').value || document.getElementById('status-input').value,
+                dueDate: document.getElementById('due-date').value,
+                strikeDate: document.getElementById('strike-date').value,
+                venue: document.getElementById('venue-dropdown').value || document.getElementById('venue-input').value,
+                area: document.getElementById('area-dropdown').value || document.getElementById('area-input').value,
+                location: document.getElementById('location').value,
+                artworkUrl: ''
+            };
+
+            if (isEditMode && originalRowNumber) {
+                formData.originalRowNumber = originalRowNumber;
+            }
+
+            return formData;
+        }
+
+        function validateForm(formData) {
+            if (!formData.asset) {
+                alert('Please enter an Asset Name');
+                return false;
+            }
+            if (!formData.material) {
+                alert('Please select or enter a Material');
+                return false;
+            }
+            if (!formData.quantity || formData.quantity <= 0) {
+                alert('Please enter a valid Quantity');
+                return false;
+            }
+            return true;
+        }
+
+        function submitToProject(formData, button) {
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    button.disabled = false;
+                    button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
+                    button.classList.remove('opacity-50');
+
+                    if (result.success) {
+                        if (result.isUpdate) {
+                            google.script.host.close();
+                        } else {
+                            resetForm();
+                        }
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    button.disabled = false;
+                    button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
+                    button.classList.remove('opacity-50');
+                    alert('Error: ' + error.message);
+                })
+                .addAssetToProject(formData);
+        }
+
+        function resetForm() {
+            document.getElementById('item-dropdown').value = '';
+            document.getElementById('material-dropdown').value = '';
+            document.getElementById('asset-name').value = '';
+            document.getElementById('quantity').value = '1';
+            document.getElementById('width').value = '';
+            document.getElementById('height').value = '';
+            document.getElementById('die-cut').checked = false;
+            document.getElementById('double-sided').checked = false;
+            document.getElementById('status-dropdown').value = '';
+            document.getElementById('due-date').value = '';
+            document.getElementById('strike-date').value = '';
+            document.getElementById('venue-dropdown').value = '';
+            document.getElementById('area-dropdown').value = '';
+            document.getElementById('location').value = '';
+            document.getElementById('folder-dropdown').value = '';
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-name').textContent = '';
+            selectedFile = null;
+        }
+
+        function populateFormData(formData) {
+            if (!formData) return;
+
+            if (formData.item) document.getElementById('item-dropdown').value = formData.item;
+            if (formData.material) document.getElementById('material-dropdown').value = formData.material;
+            if (formData.asset) document.getElementById('asset-name').value = formData.asset;
+            if (formData.quantity) document.getElementById('quantity').value = formData.quantity;
+            if (formData.width) document.getElementById('width').value = formData.width;
+            if (formData.height) document.getElementById('height').value = formData.height;
+            if (formData.dieCut) document.getElementById('die-cut').checked = formData.dieCut;
+            if (formData.doubleSided) document.getElementById('double-sided').checked = formData.doubleSided;
+            if (formData.status) document.getElementById('status-dropdown').value = formData.status;
+            if (formData.dueDate) document.getElementById('due-date').value = formData.dueDate;
+            if (formData.strikeDate) document.getElementById('strike-date').value = formData.strikeDate;
+            if (formData.venue) document.getElementById('venue-dropdown').value = formData.venue;
+            if (formData.area) document.getElementById('area-dropdown').value = formData.area;
+            if (formData.location) document.getElementById('location').value = formData.location;
+        }
+
+        // Side Drawer Functionality
+        const drawer = document.getElementById('side-drawer');
+        const drawerTrigger = document.getElementById('drawer-trigger');
+        const closeDrawer = document.getElementById('close-drawer');
+
+        drawerTrigger.addEventListener('click', () => {
+            drawer.classList.remove('translate-x-full');
+        });
+
+        closeDrawer.addEventListener('click', () => {
+            drawer.classList.add('translate-x-full');
+        });
+
+        // Accordion functionality
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', function() {
+                const accordionType = this.getAttribute('data-accordion');
+                const content = document.getElementById(`${accordionType}-accordion-content`);
+                const svg = this.querySelector('svg');
+                
+                content.classList.toggle('active');
+                svg.classList.toggle('rotate-180');
+                
+                if (content.classList.contains('active')) {
+                    loadDrawerItems(accordionType);
+                }
+            });
+        });
+
+        function loadDrawerItems(fieldType) {
+            const fieldMap = {
+                'item': 'items',
+                'material': 'materials',
+                'status': 'statuses',
+                'venue': 'venues',
+                'area': 'areas'
+            };
+            
+            const listContainer = document.getElementById(`${fieldType}-list`);
+            listContainer.innerHTML = '<div class="text-center py-4 text-sm text-gray-500">Loading...</div>';
+            
+            const values = dropdownData[fieldMap[fieldType]] || [];
+            
+            listContainer.innerHTML = '';
+            
+            values.forEach(value => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'dropdown-list-item';
+                itemDiv.innerHTML = `
+                    <input type="text" value="${value}" data-original="${value}" class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm" />
+                    <button class="save-btn hidden bg-green-600 text-white rounded hover:bg-green-700">Save</button>
+                    <button class="delete-btn bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                `;
+                
+                const input = itemDiv.querySelector('input');
+                const saveBtn = itemDiv.querySelector('.save-btn');
+                const deleteBtn = itemDiv.querySelector('.delete-btn');
+                
+                input.addEventListener('input', function() {
+                    if (this.value !== this.getAttribute('data-original')) {
+                        saveBtn.classList.remove('hidden');
+                    } else {
+                        saveBtn.classList.add('hidden');
+                    }
+                });
+                
+                saveBtn.addEventListener('click', function() {
+                    const oldValue = input.getAttribute('data-original');
+                    const newValue = input.value.trim();
+                    
+                    if (newValue && newValue !== oldValue) {
+                        google.script.run
+                            .withSuccessHandler(function(result) {
+                                if (result.success) {
+                                    input.setAttribute('data-original', newValue);
+                                    saveBtn.classList.add('hidden');
+                                    
+                                    updateFormDropdown(fieldType, oldValue, newValue);
+                                    
+                                    google.script.run
+                                        .withSuccessHandler(function(data) {
+                                            dropdownData = data;
+                                            populateDropdowns();
+                                        })
+                                        .getDropdownData();
+                                } else {
+                                    alert('Error: ' + result.message);
+                                }
+                            })
+                            .updateDropdownValue(fieldMap[fieldType], oldValue, newValue);
+                    }
+                });
+                
+                deleteBtn.addEventListener('click', function() {
+                    if (confirm(`Delete "${value}"?`)) {
+                        google.script.run
+                            .withSuccessHandler(function(result) {
+                                if (result.success) {
+                                    itemDiv.remove();
+                                    
+                                    const dropdown = document.getElementById(`${fieldType}-dropdown`);
+                                    const options = dropdown.querySelectorAll('option');
+                                    options.forEach(opt => {
+                                        if (opt.value === value) opt.remove();
+                                    });
+                                    
+                                    google.script.run
+                                        .withSuccessHandler(function(data) {
+                                            dropdownData = data;
+                                        })
+                                        .getDropdownData();
+                                } else {
+                                    alert('Error: ' + result.message);
+                                }
+                            })
+                            .deleteDropdownValue(fieldMap[fieldType], value);
+                    }
+                });
+                
+                listContainer.appendChild(itemDiv);
+            });
+        }
+
+        function updateFormDropdown(fieldType, oldValue, newValue) {
+            const dropdown = document.getElementById(`${fieldType}-dropdown`);
+            const options = dropdown.querySelectorAll('option');
+            
+            options.forEach(opt => {
+                if (opt.value === oldValue) {
+                    opt.value = newValue;
+                    opt.textContent = newValue;
+                }
+            });
+        }
+
+        // Add new item buttons in drawer
+        ['item', 'material', 'status', 'venue', 'area'].forEach(fieldType => {
+            document.getElementById(`add-new-${fieldType}-drawer`).addEventListener('click', function() {
+                const newValue = prompt(`Enter new ${fieldType}:`);
+                if (newValue && newValue.trim()) {
+                    const fieldMap = {
+                        'item': 'items',
+                        'material': 'materials',
+                        'status': 'statuses',
+                        'venue': 'venues',
+                        'area': 'areas'
+                    };
+                    
+                    google.script.run
+                        .withSuccessHandler(function(result) {
+                            if (result.success) {
+                                loadDrawerItems(fieldType);
+                                
+                                const dropdown = document.getElementById(`${fieldType}-dropdown`);
+                                const option = document.createElement('option');
+                                option.value = newValue.trim();
+                                option.textContent = newValue.trim();
+                                dropdown.appendChild(option);
+                                
+                                google.script.run
+                                    .withSuccessHandler(function(data) {
+                                        dropdownData = data;
+                                    })
+                                    .getDropdownData();
+                            } else {
+                                alert('Error: ' + result.message);
+                            }
+                        })
+                        .addNewDropdownValue(fieldMap[fieldType], newValue.trim());
+                }
+            });
+        });
+    </script>
+</body>
+</html>
