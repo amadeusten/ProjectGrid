@@ -1,16 +1,35 @@
 /**
  * @OnlyCurrentDoc
- * Asset Management System with Google Drive Integration
+ * Asset Management System with Google Drive Integration and Two-Way Sync
  */
 
 // Configuration
 const CONFIG = {
   LOG_SHEET_NAME: 'AssetLog',
   LOG_ID_PREFIX: 'ASSET',
-  MASTER_SHEET_NAME: 'MasterBBLMW25', // Main data sheet name
-  DRIVE_FOLDER_ID: '1p816AjdED6d6uQc2yeb_X8hzpGlYOmPC', // Replace with actual folder ID
+  MASTER_SHEET_NAME: 'MasterBBLMW25',
+  DRIVE_FOLDER_ID: '1p816AjdED6d6uQc2yeb_X8hzpGlYOmPC',
   
-  // Dropdown data sheets
+  // Column mapping for MasterBBLMW25 sheet
+  COLUMN_MAP: {
+    ID: 1,           // A
+    AREA: 2,         // B
+    ASSET: 3,        // C
+    STATUS: 4,       // D
+    DIMENSIONS: 5,   // E
+    QUANTITY: 6,     // F
+    ITEM: 7,         // G
+    MATERIAL: 8,     // H
+    DUE_DATE: 9,     // I
+    STRIKE_DATE: 10, // J
+    VENUE: 11,       // K
+    LOCATION: 12,    // L
+    ARTWORK: 13,     // M
+    DOUBLE_SIDED: 14,// N
+    DIECUT: 15,      // O
+    EDIT: 16         // P
+  },
+  
   DROPDOWN_SHEETS: {
     items: 'ItemsList',
     materials: 'MaterialsList', 
@@ -19,7 +38,6 @@ const CONFIG = {
     areas: 'AreasList'
   },
   
-  // Material ID prefixes
   MATERIAL_ID_MAP: {
     'Gatorplast 3/16"': 'A',
     'Gatorplast 1/2"': 'B',
@@ -30,7 +48,6 @@ const CONFIG = {
     'Static Cling - Clear': 'G',
     'PVC 1/8"': 'H',
     'Fabrication': 'I'
-    // Add more materials and their prefixes as needed
   }
 };
 
@@ -44,8 +61,8 @@ const assetApp = {
     ui.showModalDialog(htmlOutput, 'BBLMW25 : Add New Asset');
   },
 
-  openForEdit: function(logId) {
-    const formData = projectSheet.getLoggedFormData(logId, CONFIG.LOG_SHEET_NAME);
+  openForEdit: function(rowNumber) {
+    const formData = projectSheet.getRowData(rowNumber);
     if (formData) {
       const htmlOutput = HtmlService.createHtmlOutputFromFile('AssetForm')
           .setWidth(600)
@@ -64,7 +81,7 @@ const assetApp = {
       const ui = SpreadsheetApp.getUi();
       ui.showModalDialog(modifiedOutput, 'Edit Asset');
     } else {
-      this.showDialog();
+      SpreadsheetApp.getUi().alert('Error', 'Could not load row data.', SpreadsheetApp.getUi().ButtonSet.OK);
     }
   },
 
@@ -92,7 +109,6 @@ const dropdownManager = {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = spreadsheet.getSheetByName(sheetName);
     
-    // Create sheet if it doesn't exist
     if (!sheet) {
       sheet = spreadsheet.insertSheet(sheetName);
       sheet.getRange(1, 1).setValue(fieldName.charAt(0).toUpperCase() + fieldName.slice(1));
@@ -118,13 +134,11 @@ const dropdownManager = {
       sheet.getRange(1, 1).setValue(fieldName.charAt(0).toUpperCase() + fieldName.slice(1));
     }
     
-    // Check if value already exists
     const existingValues = this.getDropdownValues(fieldName);
     if (existingValues.includes(newValue)) {
       return { success: false, message: 'Value already exists' };
     }
     
-    // Add new value
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1).setValue(newValue);
     
@@ -148,10 +162,7 @@ const dropdownManager = {
     for (let i = 0; i < values.length; i++) {
       if (values[i][0] === oldValue) {
         sheet.getRange(i + 2, 1).setValue(newValue);
-        
-        // Update in main sheet
         this.updateInMainSheet(fieldName, oldValue, newValue);
-        
         return { success: true, message: 'Value updated successfully' };
       }
     }
@@ -190,11 +201,11 @@ const dropdownManager = {
     if (!mainSheet) return;
     
     const columnMap = {
-      'items': 7,    // Column G
-      'materials': 8, // Column H
-      'statuses': 4,  // Column D
-      'venues': 11,   // Column K
-      'areas': 2      // Column B
+      'items': CONFIG.COLUMN_MAP.ITEM,
+      'materials': CONFIG.COLUMN_MAP.MATERIAL,
+      'statuses': CONFIG.COLUMN_MAP.STATUS,
+      'venues': CONFIG.COLUMN_MAP.VENUE,
+      'areas': CONFIG.COLUMN_MAP.AREA
     };
     
     const column = columnMap[fieldName];
@@ -290,18 +301,153 @@ const projectSheet = {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = spreadsheet.getSheetByName(CONFIG.MASTER_SHEET_NAME);
     
-    // If MasterBBLMW25 doesn't exist, create it
     if (!sheet) {
       sheet = spreadsheet.insertSheet(CONFIG.MASTER_SHEET_NAME);
-      // Set up headers
       sheet.getRange(1, 1, 1, 16).setValues([[
         'ID', 'Area', 'Asset', 'Status', 'Dimensions', 'Quantity', 'Item', 'Material',
         'Due Date', 'Strike Date', 'Venue', 'Location', 'Artwork', 'Double Sided', 'Diecut', 'Edit'
       ]]);
       sheet.getRange(1, 1, 1, 16).setFontWeight('bold');
+      
+      // Apply dropdown validations to entire columns
+      this.applyColumnDropdowns(sheet);
     }
     
     return sheet;
+  },
+
+  applyColumnDropdowns: function(sheet) {
+    const maxRows = 1000; // Apply to first 1000 rows
+    
+    // Get dropdown values
+    const items = dropdownManager.getDropdownValues('items');
+    const materials = dropdownManager.getDropdownValues('materials');
+    const statuses = dropdownManager.getDropdownValues('statuses');
+    const venues = dropdownManager.getDropdownValues('venues');
+    const areas = dropdownManager.getDropdownValues('areas');
+    
+    // Apply data validation to Item column (G) - entire column
+    if (items.length > 0) {
+      const itemRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(items, true)
+        .setAllowInvalid(true)
+        .build();
+      sheet.getRange(2, CONFIG.COLUMN_MAP.ITEM, maxRows, 1).setDataValidation(itemRule);
+    }
+    
+    // Apply data validation to Material column (H) - entire column
+    if (materials.length > 0) {
+      const materialRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(materials, true)
+        .setAllowInvalid(true)
+        .build();
+      sheet.getRange(2, CONFIG.COLUMN_MAP.MATERIAL, maxRows, 1).setDataValidation(materialRule);
+    }
+    
+    // Apply data validation to Status column (D) - entire column
+    if (statuses.length > 0) {
+      const statusRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(statuses, true)
+        .setAllowInvalid(true)
+        .build();
+      sheet.getRange(2, CONFIG.COLUMN_MAP.STATUS, maxRows, 1).setDataValidation(statusRule);
+    }
+    
+    // Apply data validation to Venue column (K) - entire column
+    if (venues.length > 0) {
+      const venueRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(venues, true)
+        .setAllowInvalid(true)
+        .build();
+      sheet.getRange(2, CONFIG.COLUMN_MAP.VENUE, maxRows, 1).setDataValidation(venueRule);
+    }
+    
+    // Apply data validation to Area column (B) - entire column
+    if (areas.length > 0) {
+      const areaRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(areas, true)
+        .setAllowInvalid(true)
+        .build();
+      sheet.getRange(2, CONFIG.COLUMN_MAP.AREA, maxRows, 1).setDataValidation(areaRule);
+    }
+  },
+
+  getRowData: function(rowNumber) {
+    try {
+      const sheet = this.getActiveSheet();
+      const row = parseInt(rowNumber);
+      
+      if (!row || isNaN(row) || row < 2) {
+        return null;
+      }
+      
+      const lastRow = sheet.getLastRow();
+      if (row > lastRow) {
+        return null;
+      }
+      
+      const range = sheet.getRange(row, 1, 1, 16);
+      const values = range.getValues()[0];
+      
+      // Parse dimensions (format: "Width" x "Height")
+      let width = '';
+      let height = '';
+      const dimensions = values[CONFIG.COLUMN_MAP.DIMENSIONS - 1];
+      if (dimensions) {
+        const dimMatch = dimensions.toString().match(/^([\d.]+)"\s*x\s*([\d.]+)"$/);
+        if (dimMatch) {
+          width = dimMatch[1];
+          height = dimMatch[2];
+        }
+      }
+      
+      // Parse dates to YYYY-MM-DD format
+      const parseDateToISO = (dateValue) => {
+        if (!dateValue) return '';
+        
+        // If it's already a Date object
+        if (dateValue instanceof Date) {
+          return Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        }
+        
+        // If it's a string in the format "Day, Month Date, Year"
+        const dateStr = dateValue.toString();
+        const dateMatch = dateStr.match(/\w+,\s+(\w+)\s+(\d+),\s+(\d+)/);
+        if (dateMatch) {
+          const month = dateMatch[1];
+          const day = dateMatch[2];
+          const year = dateMatch[3];
+          const date = new Date(`${month} ${day}, ${year}`);
+          return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        }
+        
+        return '';
+      };
+      
+      const formData = {
+        originalRowNumber: row,
+        item: values[CONFIG.COLUMN_MAP.ITEM - 1] || '',
+        material: values[CONFIG.COLUMN_MAP.MATERIAL - 1] || '',
+        asset: values[CONFIG.COLUMN_MAP.ASSET - 1] || '',
+        quantity: values[CONFIG.COLUMN_MAP.QUANTITY - 1] || '',
+        width: width,
+        height: height,
+        dieCut: (values[CONFIG.COLUMN_MAP.DIECUT - 1] === true || values[CONFIG.COLUMN_MAP.DIECUT - 1] === 'TRUE'),
+        doubleSided: (values[CONFIG.COLUMN_MAP.DOUBLE_SIDED - 1] === true || values[CONFIG.COLUMN_MAP.DOUBLE_SIDED - 1] === 'TRUE'),
+        status: values[CONFIG.COLUMN_MAP.STATUS - 1] || '',
+        dueDate: parseDateToISO(values[CONFIG.COLUMN_MAP.DUE_DATE - 1]),
+        strikeDate: parseDateToISO(values[CONFIG.COLUMN_MAP.STRIKE_DATE - 1]),
+        venue: values[CONFIG.COLUMN_MAP.VENUE - 1] || '',
+        area: values[CONFIG.COLUMN_MAP.AREA - 1] || '',
+        location: values[CONFIG.COLUMN_MAP.LOCATION - 1] || '',
+        artworkUrl: values[CONFIG.COLUMN_MAP.ARTWORK - 1] || ''
+      };
+      
+      return formData;
+    } catch (error) {
+      console.error('Error getting row data:', error);
+      return null;
+    }
   },
 
   getNextId: function(material) {
@@ -410,29 +556,6 @@ const projectSheet = {
     }
   },
 
-  getLoggedFormData: function(logId, logSheetName) {
-    try {
-      const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-      const logSheet = spreadsheet.getSheetByName(logSheetName);
-      
-      if (!logSheet) return null;
-      
-      const dataRange = logSheet.getDataRange();
-      const values = dataRange.getValues();
-      
-      for (let i = 1; i < values.length; i++) {
-        if (values[i][0] === logId) {
-          return JSON.parse(values[i][3]);
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error retrieving form data:', error);
-      return null;
-    }
-  },
-
   addProjectItem: function(assetData, logIdPrefix, logSheetName) {
     try {
       const sheet = this.getActiveSheet();
@@ -450,37 +573,39 @@ const projectSheet = {
       const strikeDate = this.formatDate(assetData.strikeDate);
       const dimensions = `${assetData.width}" x ${assetData.height}"`;
       
-      // Column mapping per blueprint
       const rowData = [
-        assetId,                    // A: ID
-        assetData.area || '',       // B: Area
-        assetData.asset || '',      // C: Asset
-        'New Asset',                // D: Status (default)
-        dimensions,                 // E: Dimensions (Width x Height)
-        assetData.quantity || '',   // F: Quantity
-        assetData.item || '',       // G: Item
-        assetData.material || '',   // H: Material
-        dueDate,                    // I: Due Date
-        strikeDate,                 // J: Strike Date
-        assetData.venue || '',      // K: Venue
-        assetData.location || '',   // L: Location
-        assetData.artworkUrl || '', // M: Artwork (file URL)
-        assetData.doubleSided ? 'TRUE' : 'FALSE', // N: Double Sided
-        assetData.dieCut ? 'TRUE' : 'FALSE',      // O: Diecut
-        'Edit'                      // P: Edit instruction
+        assetId,
+        assetData.area || '',
+        assetData.asset || '',
+        'New Asset',
+        dimensions,
+        assetData.quantity || '',
+        assetData.item || '',
+        assetData.material || '',
+        dueDate,
+        strikeDate,
+        assetData.venue || '',
+        assetData.location || '',
+        assetData.artworkUrl || '',
+        assetData.doubleSided || false,  // Will be checkbox
+        assetData.dieCut || false,       // Will be checkbox
+        'Edit'
       ];
       
       const range = sheet.getRange(nextRow, 1, 1, rowData.length);
       range.setValues([rowData]);
       
-      // Set "New Asset" formatting (blue text in Status column D)
-      sheet.getRange(nextRow, 4).setFontColor('#0062e2');
+      // Insert checkboxes for Double Sided and Diecut columns
+      sheet.getRange(nextRow, CONFIG.COLUMN_MAP.DOUBLE_SIDED).insertCheckboxes();
+      sheet.getRange(nextRow, CONFIG.COLUMN_MAP.DIECUT).insertCheckboxes();
       
-      // Log form data
+      // Set entire row to blue text for "New Asset" status
+      range.setFontColor('#0062e2');
+      
       const logId = this.logFormData(assetData.formData || assetData, nextRow, logIdPrefix, logSheetName);
       
       if (logId) {
-        const editCell = sheet.getRange(nextRow, 16);
+        const editCell = sheet.getRange(nextRow, CONFIG.COLUMN_MAP.EDIT);
         editCell.setNote(`LogID: ${logId}\n\nTo edit this item:\n1. Select this cell\n2. Go to Assets > Edit Selected Item`);
         editCell.setBackground('#e3f2fd');
         editCell.setFontColor('#1976d2');
@@ -516,37 +641,57 @@ const projectSheet = {
         throw new Error(`Invalid row number: ${assetData.originalRowNumber}`);
       }
       
-      const existingId = sheet.getRange(rowNum, 1).getValue();
+      const existingId = sheet.getRange(rowNum, CONFIG.COLUMN_MAP.ID).getValue();
       const dueDate = this.formatDate(assetData.dueDate);
       const strikeDate = this.formatDate(assetData.strikeDate);
       const dimensions = `${assetData.width}" x ${assetData.height}"`;
       
       const rowData = [
-        existingId,                 // A: ID (keep existing)
-        assetData.area || '',       // B: Area
-        assetData.asset || '',      // C: Asset
-        assetData.status || 'New Asset', // D: Status
-        dimensions,                 // E: Dimensions
-        assetData.quantity || '',   // F: Quantity
-        assetData.item || '',       // G: Item
-        assetData.material || '',   // H: Material
-        dueDate,                    // I: Due Date
-        strikeDate,                 // J: Strike Date
-        assetData.venue || '',      // K: Venue
-        assetData.location || '',   // L: Location
-        assetData.artworkUrl || '', // M: Artwork
-        assetData.doubleSided ? 'TRUE' : 'FALSE', // N: Double Sided
-        assetData.dieCut ? 'TRUE' : 'FALSE',      // O: Diecut
-        'Edit'                      // P: Edit
+        existingId,
+        assetData.area || '',
+        assetData.asset || '',
+        assetData.status || 'New Asset',
+        dimensions,
+        assetData.quantity || '',
+        assetData.item || '',
+        assetData.material || '',
+        dueDate,
+        strikeDate,
+        assetData.venue || '',
+        assetData.location || '',
+        assetData.artworkUrl || '',
+        assetData.doubleSided || false,  // Will be checkbox
+        assetData.dieCut || false,       // Will be checkbox
+        'Edit'
       ];
       
       const range = sheet.getRange(rowNum, 1, 1, 15);
       range.setValues([rowData.slice(0, 15)]);
       
+      // Ensure checkboxes exist in columns N and O
+      const doubleSidedCell = sheet.getRange(rowNum, CONFIG.COLUMN_MAP.DOUBLE_SIDED);
+      const diecutCell = sheet.getRange(rowNum, CONFIG.COLUMN_MAP.DIECUT);
+      
+      // Check if checkbox exists, if not insert it
+      if (doubleSidedCell.getDataValidation() === null) {
+        doubleSidedCell.insertCheckboxes();
+      }
+      if (diecutCell.getDataValidation() === null) {
+        diecutCell.insertCheckboxes();
+      }
+      
+      // Apply formatting based on status
+      const rowRange = sheet.getRange(rowNum, 1, 1, 16);
+      if (assetData.status === 'New Asset') {
+        rowRange.setFontColor('#0062e2');
+      } else {
+        rowRange.setFontColor('#000000');
+      }
+      
       const logId = this.updateLogFormData(assetData.formData || assetData, rowNum, logIdPrefix, logSheetName);
       
       if (logId) {
-        const editCell = sheet.getRange(rowNum, 16);
+        const editCell = sheet.getRange(rowNum, CONFIG.COLUMN_MAP.EDIT);
         editCell.setNote(`LogID: ${logId}\n\nTo edit this item:\n1. Select this cell\n2. Go to Assets > Edit Selected Item\n\nLast updated: ${new Date().toLocaleString()}`);
       }
       
@@ -577,38 +722,96 @@ function onOpen() {
   ui.createMenu('Assets')
       .addItem('Add New Asset', 'openAssetApp')
       .addSeparator()
-      .addItem('Edit Selected Item', 'editSelectedItem')
+      .addItem('Edit Selected Row', 'editSelectedRow')
+      .addSeparator()
+      .addItem('Setup Auto-Sort', 'setupAutoSort')
       .addToUi();
+  
+  // Ensure triggers are set up
+  setupAutoSort();
 }
 
-function onEdit(e) {
-  const sheet = e.source.getActiveSheet();
-  
-  // Only run on MasterBBLMW25 sheet
-  if (sheet.getName() !== CONFIG.MASTER_SHEET_NAME) return;
-  
-  const range = e.range;
-  
-  // Check if Status column (D) was edited
-  if (range.getColumn() === 4 && range.getRow() > 1) {
-    const newStatus = range.getValue();
-    
-    if (newStatus && newStatus !== 'New Asset') {
-      // Reset text color to black
-      range.setFontColor('#000000');
-      
-      // Sort by ID (Column A), but only non-"New Asset" rows
-      sortNonNewAssets();
+function setupAutoSort() {
+  // Remove existing triggers to avoid duplicates
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'onEditInstallable' || 
+        trigger.getHandlerFunction() === 'onChangeInstallable') {
+      ScriptApp.deleteTrigger(trigger);
     }
+  });
+  
+  // Create new installable edit trigger
+  ScriptApp.newTrigger('onEditInstallable')
+    .forSpreadsheet(SpreadsheetApp.getActive())
+    .onEdit()
+    .create();
+  
+  // Create new installable change trigger (catches pastes, imports, etc.)
+  ScriptApp.newTrigger('onChangeInstallable')
+    .forSpreadsheet(SpreadsheetApp.getActive())
+    .onChange()
+    .create();
+}
+
+function onEditInstallable(e) {
+  handleEdit(e);
+}
+
+function onChangeInstallable(e) {
+  // On any change, ensure New Assets are sorted to top
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.MASTER_SHEET_NAME);
+  if (sheet) {
+    ensureNewAssetsAtTop(sheet);
   }
 }
 
-function sortNonNewAssets() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName(CONFIG.MASTER_SHEET_NAME);
+function handleEdit(e) {
+  const sheet = e.source.getActiveSheet();
   
-  if (!sheet) return;
+  if (sheet.getName() !== CONFIG.MASTER_SHEET_NAME) return;
   
+  const range = e.range;
+  const row = range.getRow();
+  
+  // Don't process header row
+  if (row < 2) return;
+  
+  // Handle status column formatting and sorting
+  if (range.getColumn() === CONFIG.COLUMN_MAP.STATUS) {
+    const newStatus = range.getValue();
+    const rowRange = sheet.getRange(row, 1, 1, 16);
+    
+    if (newStatus === 'New Asset') {
+      // Set entire row to blue
+      rowRange.setFontColor('#0062e2');
+    } else if (newStatus && newStatus !== 'New Asset') {
+      // Reset to black text
+      rowRange.setFontColor('#000000');
+    }
+    
+    // Always sort after status change
+    ensureNewAssetsAtTop(sheet);
+  }
+  
+  // Also check if any other column was edited - if the status is already "New Asset", ensure formatting
+  if (range.getColumn() !== CONFIG.COLUMN_MAP.STATUS && range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) {
+    const statusCell = sheet.getRange(row, CONFIG.COLUMN_MAP.STATUS);
+    const currentStatus = statusCell.getValue();
+    
+    if (currentStatus === 'New Asset') {
+      const rowRange = sheet.getRange(row, 1, 1, 16);
+      rowRange.setFontColor('#0062e2');
+    }
+  }
+  
+  // Log any edit to the row (unless it's column P being edited)
+  if (range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) {
+    logRowEdit(sheet, row);
+  }
+}
+
+function ensureNewAssetsAtTop(sheet) {
   const lastRow = sheet.getLastRow();
   
   if (lastRow <= 1) return; // No data to sort
@@ -621,21 +824,167 @@ function sortNonNewAssets() {
   const otherRows = [];
   
   values.forEach((row, index) => {
-    if (row[3] === 'New Asset') { // Column D (Status)
+    if (row[CONFIG.COLUMN_MAP.STATUS - 1] === 'New Asset') {
+      newAssetRows.push(row);
+      // Ensure blue formatting
+      const rowNum = index + 2;
+      sheet.getRange(rowNum, 1, 1, 16).setFontColor('#0062e2');
+    } else {
+      otherRows.push(row);
+    }
+  });
+  
+  // Sort other rows by ID (Column A)
+  otherRows.sort((a, b) => {
+    const idA = a[0].toString();
+    const idB = b[0].toString();
+    return idA.localeCompare(idB);
+  });
+  
+  // Put "New Asset" rows at the TOP, then sorted other rows
+  const sortedData = [...newAssetRows, ...otherRows];
+  
+  // Only update if order has changed
+  const currentOrder = values.map(row => row.join('|'));
+  const newOrder = sortedData.map(row => row.join('|'));
+  
+  if (currentOrder.join('||') !== newOrder.join('||')) {
+    dataRange.setValues(sortedData);
+  }
+}
+
+function onEdit(e) {
+  // Keep simple trigger for backward compatibility
+  handleEdit(e);
+}
+
+function logRowEdit(sheet, row) {
+  try {
+    // Get all row data
+    const rowData = sheet.getRange(row, 1, 1, 16).getValues()[0];
+    
+    // Columns to check for content (excluding dropdown-only columns and checkboxes)
+    // We'll check: ID (A), Asset (C), Dimensions (E), Quantity (F), Due Date (I), Strike Date (J), Location (L), Artwork (M)
+    const columnsToCheck = [
+      CONFIG.COLUMN_MAP.ID - 1,          // A: ID
+      CONFIG.COLUMN_MAP.ASSET - 1,       // C: Asset
+      CONFIG.COLUMN_MAP.DIMENSIONS - 1,  // E: Dimensions
+      CONFIG.COLUMN_MAP.QUANTITY - 1,    // F: Quantity
+      CONFIG.COLUMN_MAP.DUE_DATE - 1,    // I: Due Date
+      CONFIG.COLUMN_MAP.STRIKE_DATE - 1, // J: Strike Date
+      CONFIG.COLUMN_MAP.LOCATION - 1,    // L: Location
+      CONFIG.COLUMN_MAP.ARTWORK - 1      // M: Artwork
+    ];
+    
+    // Check if row has any meaningful content (excluding dropdown columns)
+    const hasContent = columnsToCheck.some(index => {
+      const cell = rowData[index];
+      return cell !== '' && cell !== null && cell !== undefined;
+    });
+    
+    if (!hasContent) return;
+    
+    // Parse the row data into form format
+    const parseDateToISO = (dateValue) => {
+      if (!dateValue) return '';
+      
+      if (dateValue instanceof Date) {
+        return Utilities.formatDate(dateValue, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      }
+      
+      const dateStr = dateValue.toString();
+      const dateMatch = dateStr.match(/\w+,\s+(\w+)\s+(\d+),\s+(\d+)/);
+      if (dateMatch) {
+        const month = dateMatch[1];
+        const day = dateMatch[2];
+        const year = dateMatch[3];
+        const date = new Date(`${month} ${day}, ${year}`);
+        return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      }
+      
+      return '';
+    };
+    
+    // Parse dimensions
+    let width = '';
+    let height = '';
+    const dimensions = rowData[CONFIG.COLUMN_MAP.DIMENSIONS - 1];
+    if (dimensions) {
+      const dimMatch = dimensions.toString().match(/^([\d.]+)"\s*x\s*([\d.]+)"$/);
+      if (dimMatch) {
+        width = dimMatch[1];
+        height = dimMatch[2];
+      }
+    }
+    
+    const formData = {
+      originalRowNumber: row,
+      item: rowData[CONFIG.COLUMN_MAP.ITEM - 1] || '',
+      material: rowData[CONFIG.COLUMN_MAP.MATERIAL - 1] || '',
+      asset: rowData[CONFIG.COLUMN_MAP.ASSET - 1] || '',
+      quantity: rowData[CONFIG.COLUMN_MAP.QUANTITY - 1] || '',
+      width: width,
+      height: height,
+      dieCut: (rowData[CONFIG.COLUMN_MAP.DIECUT - 1] === true),
+      doubleSided: (rowData[CONFIG.COLUMN_MAP.DOUBLE_SIDED - 1] === true),
+      status: rowData[CONFIG.COLUMN_MAP.STATUS - 1] || '',
+      dueDate: parseDateToISO(rowData[CONFIG.COLUMN_MAP.DUE_DATE - 1]),
+      strikeDate: parseDateToISO(rowData[CONFIG.COLUMN_MAP.STRIKE_DATE - 1]),
+      venue: rowData[CONFIG.COLUMN_MAP.VENUE - 1] || '',
+      area: rowData[CONFIG.COLUMN_MAP.AREA - 1] || '',
+      location: rowData[CONFIG.COLUMN_MAP.LOCATION - 1] || '',
+      artworkUrl: rowData[CONFIG.COLUMN_MAP.ARTWORK - 1] || ''
+    };
+    
+    // Log the form data
+    const logId = projectSheet.updateLogFormData(formData, row, CONFIG.LOG_ID_PREFIX, CONFIG.LOG_SHEET_NAME);
+    
+    // Set "Edit" in column P with note
+    const editCell = sheet.getRange(row, CONFIG.COLUMN_MAP.EDIT);
+    editCell.setValue('Edit');
+    
+    if (logId) {
+      editCell.setNote(`LogID: ${logId}\n\nTo edit this item:\n1. Select this cell\n2. Go to Assets > Edit Selected Row\n\nLast updated: ${new Date().toLocaleString()}`);
+      editCell.setBackground('#e3f2fd');
+      editCell.setFontColor('#1976d2');
+      editCell.setFontWeight('bold');
+    }
+    
+  } catch (error) {
+    console.error('Error logging row edit:', error);
+  }
+}
+
+function sortNonNewAssets() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName(CONFIG.MASTER_SHEET_NAME);
+  
+  if (!sheet) return;
+  
+  const lastRow = sheet.getLastRow();
+  
+  if (lastRow <= 1) return;
+  
+  const dataRange = sheet.getRange(2, 1, lastRow - 1, 16);
+  const values = dataRange.getValues();
+  
+  const newAssetRows = [];
+  const otherRows = [];
+  
+  values.forEach((row, index) => {
+    if (row[CONFIG.COLUMN_MAP.STATUS - 1] === 'New Asset') {
       newAssetRows.push({ row: row, originalIndex: index + 2 });
     } else {
       otherRows.push({ row: row, originalIndex: index + 2 });
     }
   });
   
-  // Sort other rows by ID (Column A)
   otherRows.sort((a, b) => {
     const idA = a.row[0].toString();
     const idB = b.row[0].toString();
     return idA.localeCompare(idB);
   });
   
-  // Write back sorted data
   const sortedData = [...otherRows.map(r => r.row), ...newAssetRows.map(r => r.row)];
   dataRange.setValues(sortedData);
 }
@@ -644,50 +993,42 @@ function openAssetApp() {
   assetApp.showDialog();
 }
 
-function editSelectedItem() {
+function editSelectedRow() {
   try {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = spreadsheet.getSheetByName(CONFIG.MASTER_SHEET_NAME);
+    const sheet = spreadsheet.getActiveSheet();
+    
+    // Check if we're on the master sheet
+    if (sheet.getName() !== CONFIG.MASTER_SHEET_NAME) {
+      SpreadsheetApp.getUi().alert(
+        'Edit Row', 
+        `Please select a row in the "${CONFIG.MASTER_SHEET_NAME}" sheet to edit.`,
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+    
     const activeCell = sheet.getActiveCell();
+    const rowNumber = activeCell.getRow();
     
-    const column = activeCell.getColumn();
-    if (column !== 16) { // Column P
+    // Check if it's a valid data row (not header)
+    if (rowNumber < 2) {
       SpreadsheetApp.getUi().alert(
-        'Edit Item', 
-        'Please select an "Edit" cell first, then try again.',
+        'Edit Row', 
+        'Please select a data row (not the header row) to edit.',
         SpreadsheetApp.getUi().ButtonSet.OK
       );
       return;
     }
     
-    const cellNote = activeCell.getNote();
-    if (!cellNote || !cellNote.includes('LogID:')) {
-      SpreadsheetApp.getUi().alert(
-        'Edit Item', 
-        'No edit data found for this item.',
-        SpreadsheetApp.getUi().ButtonSet.OK
-      );
-      return;
-    }
-    
-    const logIdMatch = cellNote.match(/LogID:\s*([^\n\r]+)/);
-    if (!logIdMatch) {
-      SpreadsheetApp.getUi().alert(
-        'Edit Item', 
-        'Could not find LogID in the selected cell.',
-        SpreadsheetApp.getUi().ButtonSet.OK
-      );
-      return;
-    }
-    
-    const logId = logIdMatch[1].trim();
-    assetApp.openForEdit(logId);
+    // Open the form with the row data
+    assetApp.openForEdit(rowNumber);
     
   } catch (error) {
-    console.error('Error in editSelectedItem:', error);
+    console.error('Error in editSelectedRow:', error);
     SpreadsheetApp.getUi().alert(
       'Error', 
-      'An error occurred while trying to edit the item: ' + error.message,
+      'An error occurred while trying to edit the row: ' + error.message,
       SpreadsheetApp.getUi().ButtonSet.OK
     );
   }
@@ -720,4 +1061,8 @@ function uploadFileToDrive(fileData, folderId, fileName) {
 
 function addAssetToProject(assetData) {
   return assetApp.addToProject(assetData);
+}
+
+function getRowDataForEdit(rowNumber) {
+  return projectSheet.getRowData(rowNumber);
 }
