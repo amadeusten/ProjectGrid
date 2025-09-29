@@ -486,32 +486,63 @@
                     return;
                 }
 
-                // Get the next ID for this material to use in filename
-                google.script.run
-                    .withSuccessHandler(function(nextId) {
-                        const projectCode = '19026BB';
-                        const assetName = formData.asset.replace(/\s+/g, '_');
-                        const fileName = `${nextId}_${projectCode}_${assetName}`;
+                // For edit mode, use existing ID; for new assets, get next ID
+                if (isEditMode && originalRowNumber) {
+                    // Get the existing ID from the form data
+                    google.script.run
+                        .withSuccessHandler(function(rowData) {
+                            const existingId = rowData ? rowData.id : null;
+                            const projectCode = '19026BB';
+                            const assetName = formData.asset.replace(/\s+/g, '_');
+                            const fileName = `${existingId}_${projectCode}_${assetName}`;
 
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            google.script.run
-                                .withSuccessHandler(function(uploadResult) {
-                                    if (uploadResult.success) {
-                                        formData.artworkUrl = uploadResult.fileUrl;
-                                        submitToProject(formData, button);
-                                    } else {
-                                        alert('Error uploading file: ' + uploadResult.message);
-                                        button.disabled = false;
-                                        button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
-                                        button.classList.remove('opacity-50');
-                                    }
-                                })
-                                .uploadFileToDrive(e.target.result, folderId, fileName);
-                        };
-                        reader.readAsDataURL(selectedFile);
-                    })
-                    .getNextIdForMaterial(formData.material);
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                google.script.run
+                                    .withSuccessHandler(function(uploadResult) {
+                                        if (uploadResult.success) {
+                                            formData.artworkUrl = uploadResult.fileUrl;
+                                            submitToProject(formData, button);
+                                        } else {
+                                            alert('Error uploading file: ' + uploadResult.message);
+                                            button.disabled = false;
+                                            button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
+                                            button.classList.remove('opacity-50');
+                                        }
+                                    })
+                                    .uploadFileToDrive(e.target.result, folderId, fileName);
+                            };
+                            reader.readAsDataURL(selectedFile);
+                        })
+                        .getRowDataForEdit(originalRowNumber);
+                } else {
+                    // New asset - get next ID for this material
+                    google.script.run
+                        .withSuccessHandler(function(nextId) {
+                            const projectCode = '19026BB';
+                            const assetName = formData.asset.replace(/\s+/g, '_');
+                            const fileName = `${nextId}_${projectCode}_${assetName}`;
+
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                google.script.run
+                                    .withSuccessHandler(function(uploadResult) {
+                                        if (uploadResult.success) {
+                                            formData.artworkUrl = uploadResult.fileUrl;
+                                            submitToProject(formData, button);
+                                        } else {
+                                            alert('Error uploading file: ' + uploadResult.message);
+                                            button.disabled = false;
+                                            button.textContent = isEditMode ? 'Update Project' : 'Add to Project';
+                                            button.classList.remove('opacity-50');
+                                        }
+                                    })
+                                    .uploadFileToDrive(e.target.result, folderId, fileName);
+                            };
+                            reader.readAsDataURL(selectedFile);
+                        })
+                        .getNextIdForMaterial(formData.material);
+                }
             } else {
                 submitToProject(formData, button);
             }
