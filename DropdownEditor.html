@@ -135,6 +135,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Production Status Accordion -->
+        <div class="accordion-item">
+            <div class="accordion-header" data-accordion="productionStatus">
+                <span class="text-sm font-medium">Production Status</span>
+                <svg class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            <div class="accordion-content" id="productionStatus-accordion-content">
+                <div id="productionStatus-list" class="py-2"></div>
+                <div class="p-4 bg-gray-50">
+                    <button id="add-new-productionStatus-drawer" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Add New Production Status</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -169,7 +185,8 @@
                 'material': 'materials',
                 'status': 'statuses',
                 'venue': 'venues',
-                'area': 'areas'
+                'area': 'areas',
+                'productionStatus': 'productionStatuses'
             };
             
             const listContainer = document.getElementById(`${fieldType}-list`);
@@ -254,16 +271,18 @@
         }
 
         // Add new item buttons
-        ['item', 'material', 'status', 'venue', 'area'].forEach(fieldType => {
+        ['item', 'material', 'status', 'venue', 'area', 'productionStatus'].forEach(fieldType => {
             document.getElementById(`add-new-${fieldType}-drawer`).addEventListener('click', function() {
-                const newValue = prompt(`Enter new ${fieldType}:`);
+                const displayName = fieldType === 'productionStatus' ? 'production status' : fieldType;
+                const newValue = prompt(`Enter new ${displayName}:`);
                 if (newValue && newValue.trim()) {
                     const fieldMap = {
                         'item': 'items',
                         'material': 'materials',
                         'status': 'statuses',
                         'venue': 'venues',
-                        'area': 'areas'
+                        'area': 'areas',
+                        'productionStatus': 'productionStatuses'
                     };
                     
                     google.script.run
