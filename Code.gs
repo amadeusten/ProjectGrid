@@ -12,7 +12,7 @@ const CONFIG = {
   DRIVE_FOLDER_ID: '1p816AjdED6d6uQc2yeb_X8hzpGlYOmPC',
   INITIAL_FILES_FOLDER_NAME: '0 - Initial Files',
   THUMBNAIL_FOLDER_NAME: '1 - Thumbnail Images',
-  PROJECT_CODE: '19026BB',
+  PROJECT_CODE: '19126BB',
   
   COLUMN_MAP: {
     ID: 1, AREA: 2, ASSET: 3, STATUS: 4, DIMENSIONS: 5, QUANTITY: 6,
@@ -46,7 +46,7 @@ const CONFIG = {
 const assetApp = {
   showDialog: function() {
     const htmlOutput = HtmlService.createHtmlOutputFromFile('AssetForm')
-        .setWidth(700).setHeight(950);
+        .setWidth(600).setHeight(900);
     SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'BBLMW25 : Add New Asset');
   },
 
@@ -54,10 +54,10 @@ const assetApp = {
     const formData = projectSheet.getRowData(rowNumber);
     if (formData) {
       const htmlOutput = HtmlService.createHtmlOutputFromFile('AssetForm')
-          .setWidth(700).setHeight(950);
+          .setWidth(600).setHeight(900);
       const htmlContent = htmlOutput.getContent();
       const modifiedContent = htmlContent.replace('<script>', `<script>window.editFormData = ${JSON.stringify(formData)};`);
-      const modifiedOutput = HtmlService.createHtmlOutput(modifiedContent).setWidth(700).setHeight(950);
+      const modifiedOutput = HtmlService.createHtmlOutput(modifiedContent).setWidth(600).setHeight(900);
       SpreadsheetApp.getUi().showModalDialog(modifiedOutput, 'Edit Asset');
     } else {
       SpreadsheetApp.getUi().alert('Error', 'Could not load row data.', SpreadsheetApp.getUi().ButtonSet.OK);
@@ -561,11 +561,9 @@ const projectSheet = {
       const originalRowNumber = assetData.originalRowNumber || (assetData.formData && assetData.formData.originalRowNumber);
       if (originalRowNumber && originalRowNumber > 0) return this.updateProjectItem(assetData, logIdPrefix, logSheetName);
       
-      // For new items, always insert at row 2 (top of data) to ensure "New Asset" stays at top
-      const insertRow = 2;
-      
-      // Shift existing data down by inserting a new row
-      sheet.insertRowAfter(1);
+      // Insert at the bottom as before
+      const lastRow = sheet.getLastRow();
+      const nextRow = lastRow + 1;
       
       const assetId = this.getNextId(assetData.material);
       const dueDate = this.formatDate(assetData.dueDate);
@@ -577,28 +575,69 @@ const projectSheet = {
         assetData.location || '', assetData.artworkUrl || '', '', assetData.doubleSided || false, 
         assetData.dieCut || false, '', 'Edit'
       ];
-      const range = sheet.getRange(insertRow, 1, 1, rowData.length);
+      const range = sheet.getRange(nextRow, 1, 1, rowData.length);
       range.setValues([rowData]);
-      sheet.getRange(insertRow, CONFIG.COLUMN_MAP.DOUBLE_SIDED).insertCheckboxes();
-      sheet.getRange(insertRow, CONFIG.COLUMN_MAP.DIECUT).insertCheckboxes();
+      sheet.getRange(nextRow, CONFIG.COLUMN_MAP.DOUBLE_SIDED).insertCheckboxes();
+      sheet.getRange(nextRow, CONFIG.COLUMN_MAP.DIECUT).insertCheckboxes();
       range.setFontColor('#0062e2');
       
-      const logId = this.logFormData(assetData.formData || assetData, insertRow, logIdPrefix, logSheetName);
+      const logId = this.logFormData(assetData.formData || assetData, nextRow, logIdPrefix, logSheetName);
       if (logId) {
-        const editCell = sheet.getRange(insertRow, CONFIG.COLUMN_MAP.EDIT);
+        const editCell = sheet.getRange(nextRow, CONFIG.COLUMN_MAP.EDIT);
         editCell.setNote(`LogID: ${logId}\n\nTo edit this item:\n1. Select this cell\n2. Go to Assets > Edit Selected Row`);
         editCell.setBackground('#e3f2fd');
         editCell.setFontColor('#1976d2');
         editCell.setFontWeight('bold');
       }
       
-      // Force sort after adding to ensure proper order
+      // Apply dropdown validations to the new row
+      this.applyDropdownsToRow(sheet, nextRow);
+      
+      // Force sort immediately after adding to move "New Asset" to top
       this.forceSort(sheet);
       
-      return { success: true, message: `Asset added to row ${insertRow}`, rowNumber: insertRow, logId: logId, isUpdate: false };
+      return { success: true, message: `Asset added to row ${nextRow}`, rowNumber: nextRow, logId: logId, isUpdate: false };
     } catch (error) {
       console.error('Error adding project item:', error);
       return { success: false, message: `Error adding item: ${error.message}`, rowNumber: null, logId: null, isUpdate: false };
+    }
+  },
+
+  applyDropdownsToRow: function(sheet, rowNum) {
+    try {
+      const items = dropdownManager.getDropdownValues('items');
+      const materials = dropdownManager.getDropdownValues('materials');
+      const statuses = dropdownManager.getDropdownValues('statuses');
+      const venues = dropdownManager.getDropdownValues('venues');
+      const areas = dropdownManager.getDropdownValues('areas');
+      const productionStatuses = dropdownManager.getDropdownValues('productionStatuses');
+      
+      if (items.length > 0) {
+        const itemRule = SpreadsheetApp.newDataValidation().requireValueInList(items, true).setAllowInvalid(true).build();
+        sheet.getRange(rowNum, CONFIG.COLUMN_MAP.ITEM).setDataValidation(itemRule);
+      }
+      if (materials.length > 0) {
+        const materialRule = SpreadsheetApp.newDataValidation().requireValueInList(materials, true).setAllowInvalid(true).build();
+        sheet.getRange(rowNum, CONFIG.COLUMN_MAP.MATERIAL).setDataValidation(materialRule);
+      }
+      if (statuses.length > 0) {
+        const statusRule = SpreadsheetApp.newDataValidation().requireValueInList(statuses, true).setAllowInvalid(true).build();
+        sheet.getRange(rowNum, CONFIG.COLUMN_MAP.STATUS).setDataValidation(statusRule);
+      }
+      if (venues.length > 0) {
+        const venueRule = SpreadsheetApp.newDataValidation().requireValueInList(venues, true).setAllowInvalid(true).build();
+        sheet.getRange(rowNum, CONFIG.COLUMN_MAP.VENUE).setDataValidation(venueRule);
+      }
+      if (areas.length > 0) {
+        const areaRule = SpreadsheetApp.newDataValidation().requireValueInList(areas, true).setAllowInvalid(true).build();
+        sheet.getRange(rowNum, CONFIG.COLUMN_MAP.AREA).setDataValidation(areaRule);
+      }
+      if (productionStatuses.length > 0) {
+        const productionStatusRule = SpreadsheetApp.newDataValidation().requireValueInList(productionStatuses, true).setAllowInvalid(true).build();
+        sheet.getRange(rowNum, CONFIG.COLUMN_MAP.PRODUCTION_STATUS).setDataValidation(productionStatusRule);
+      }
+    } catch (error) {
+      console.error('Error applying dropdowns to row:', error);
     }
   },
 
@@ -630,6 +669,7 @@ const projectSheet = {
       const rowRange = sheet.getRange(rowNum, 1, 1, CONFIG.COLUMN_MAP.EDIT);
       if (assetData.status === 'New Asset') rowRange.setFontColor('#0062e2');
       else if (assetData.status === 'Delivered') rowRange.setFontColor('#38AE74');
+      else if (assetData.status === 'On Hold') rowRange.setFontColor('#f7c831');
       else rowRange.setFontColor('#000000');
       const logId = this.updateLogFormData(assetData.formData || assetData, rowNum, logIdPrefix, logSheetName);
       if (logId) {
@@ -660,10 +700,12 @@ const projectSheet = {
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Assets')
+  ui.createMenu('BBLMW25')
     .addItem('Add New Asset', 'openAssetApp')
     .addSeparator()
     .addItem('Edit Selected Row', 'editSelectedRow')
+    .addSeparator()
+    .addItem('Reorder Asset', 'openReorderAssetApp')
     .addSeparator()
     .addSubMenu(ui.createMenu('Additional')
       .addItem('Edit All Dropdowns', 'openDropdownEditor')
@@ -735,8 +777,11 @@ function updateFileNames() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.MASTER_SHEET_NAME);
     if (!sheet) { ui.alert('Error', 'Master sheet not found.', ui.ButtonSet.OK); return; }
     const files = initialFilesFolder.getFiles();
-    let renamedCount = 0, skippedCount = 0;
+    let renamedCount = 0, skippedCount = 0, linksAddedCount = 0;
     const renamedFiles = [];
+    const fileMap = {}; // Map of asset IDs to file URLs
+    
+    // First pass: Rename files and build file map
     while (files.hasNext()) {
       const file = files.next();
       const fileName = file.getName();
@@ -759,13 +804,35 @@ function updateFileNames() {
                 renamedFiles.push(`${fileName} → ${newFileName}`);
                 renamedCount++;
               } else skippedCount++;
+              
+              // Store file URL for this asset ID
+              fileMap[assetId] = file.getUrl();
             }
             break;
           }
         }
       }
     }
-    let message = `File Renaming Complete!\n\n✅ Renamed: ${renamedCount} file(s)\n⏭️ Skipped: ${skippedCount} file(s) (already correct)\n`;
+    
+    // Second pass: Insert Drive links into Artwork column
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    for (let i = 1; i < values.length; i++) {
+      const rowId = values[i][CONFIG.COLUMN_MAP.ID - 1];
+      if (rowId && fileMap[rowId]) {
+        const artworkCell = sheet.getRange(i + 1, CONFIG.COLUMN_MAP.ARTWORK);
+        const currentValue = artworkCell.getValue();
+        
+        // Only update if cell is empty or different from the file URL
+        if (!currentValue || currentValue !== fileMap[rowId]) {
+          artworkCell.setValue(fileMap[rowId]);
+          linksAddedCount++;
+        }
+      }
+    }
+    
+    let message = `File Update Complete!\n\n✅ Renamed: ${renamedCount} file(s)\n⏭️ Skipped: ${skippedCount} file(s) (already correct)\n🔗 Links Added: ${linksAddedCount} artwork link(s)\n`;
     if (renamedFiles.length > 0) {
       message += `\nRenamed Files:\n${renamedFiles.slice(0, 10).join('\n')}`;
       if (renamedFiles.length > 10) message += `\n... and ${renamedFiles.length - 10} more`;
@@ -815,7 +882,8 @@ function handleEdit(e) {
       rowRange.setFontColor('#FF2093');
       showHXCommentDialog(sheet, row);
     } else if (newStatus === 'Delivered') rowRange.setFontColor('#38AE74');
-    else if (newStatus && newStatus !== 'New Asset' && newStatus !== 'Requires Attn - HX' && newStatus !== 'Delivered') rowRange.setFontColor('#000000');
+    else if (newStatus === 'On Hold') rowRange.setFontColor('#f7c831');
+    else if (newStatus && newStatus !== 'New Asset' && newStatus !== 'Requires Attn - HX' && newStatus !== 'Delivered' && newStatus !== 'On Hold') rowRange.setFontColor('#000000');
     ensureNewAssetsAtTop(sheet);
   }
   if (range.getColumn() !== CONFIG.COLUMN_MAP.STATUS && range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) {
@@ -824,6 +892,7 @@ function handleEdit(e) {
     if (currentStatus === 'New Asset') sheet.getRange(row, 1, 1, CONFIG.COLUMN_MAP.EDIT).setFontColor('#0062e2');
     else if (currentStatus === 'Requires Attn - HX') sheet.getRange(row, 1, 1, CONFIG.COLUMN_MAP.EDIT).setFontColor('#FF2093');
     else if (currentStatus === 'Delivered') sheet.getRange(row, 1, 1, CONFIG.COLUMN_MAP.EDIT).setFontColor('#38AE74');
+    else if (currentStatus === 'On Hold') sheet.getRange(row, 1, 1, CONFIG.COLUMN_MAP.EDIT).setFontColor('#f7c831');
   }
   if (range.getColumn() !== CONFIG.COLUMN_MAP.EDIT) logRowEdit(sheet, row);
 }
@@ -1020,4 +1089,150 @@ function getRowDataForEdit(rowNumber) {
     return { ...rowData, id: idValue };
   }
   return null;
+}
+
+// Reorder Asset Functions
+function openReorderAssetApp() {
+  const htmlOutput = HtmlService.createHtmlOutputFromFile('ReorderAssetForm')
+      .setWidth(600).setHeight(400);
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'Reorder Asset');
+}
+
+function getAvailableAssetsForReorder() {
+  try {
+    const sheet = projectSheet.getActiveSheet();
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) return [];
+    
+    const dataRange = sheet.getRange(2, 1, lastRow - 1, CONFIG.COLUMN_MAP.EDIT);
+    const values = dataRange.getValues();
+    
+    const availableAssets = [];
+    const seenAssets = new Set();
+    
+    for (let i = 0; i < values.length; i++) {
+      const assetId = values[i][CONFIG.COLUMN_MAP.ID - 1];
+      const assetName = values[i][CONFIG.COLUMN_MAP.ASSET - 1];
+      
+      if (!assetName) continue;
+      
+      // Check if this is a concatenated/reordered asset (contains " - " pattern)
+      // We want to exclude assets that match the pattern: "ID - Asset Name"
+      const isConcatenated = /^[A-Z]\d+\s*-\s*.+/.test(assetName.toString());
+      
+      // Only add if not concatenated and not already seen
+      if (!isConcatenated && !seenAssets.has(assetName)) {
+        seenAssets.add(assetName);
+        availableAssets.push({
+          name: assetName,
+          rowNumber: i + 2 // Actual row number in sheet
+        });
+      }
+    }
+    
+    // Sort alphabetically
+    availableAssets.sort((a, b) => a.name.localeCompare(b.name));
+    
+    return availableAssets;
+  } catch (error) {
+    console.error('Error getting available assets:', error);
+    throw new Error('Failed to load assets: ' + error.message);
+  }
+}
+
+function reorderAsset(reorderData) {
+  try {
+    const sheet = projectSheet.getActiveSheet();
+    const originalRowNumber = parseInt(reorderData.originalRowNumber);
+    
+    if (!originalRowNumber || originalRowNumber < 2) {
+      return { success: false, message: 'Invalid asset selection' };
+    }
+    
+    // Get all data from the original row
+    const originalRange = sheet.getRange(originalRowNumber, 1, 1, CONFIG.COLUMN_MAP.EDIT);
+    const originalData = originalRange.getValues()[0];
+    
+    // Extract original values
+    const originalId = originalData[CONFIG.COLUMN_MAP.ID - 1];
+    const originalAsset = originalData[CONFIG.COLUMN_MAP.ASSET - 1];
+    const originalMaterial = originalData[CONFIG.COLUMN_MAP.MATERIAL - 1];
+    
+    // Generate new ID based on material
+    const newId = projectSheet.getNextId(originalMaterial);
+    
+    // Create concatenated asset name: "OriginalID - OriginalAssetName"
+    const newAssetName = `${originalId} - ${originalAsset}`;
+    
+    // Insert new row at the bottom
+    const lastRow = sheet.getLastRow();
+    const newRow = lastRow + 1;
+    
+    // Build row data with modifications
+    const rowData = [
+      newId, // New sequential ID
+      originalData[CONFIG.COLUMN_MAP.AREA - 1] || '', // Area
+      newAssetName, // Concatenated asset name
+      'New Asset', // Status - always "New Asset"
+      originalData[CONFIG.COLUMN_MAP.DIMENSIONS - 1] || '', // Dimensions
+      reorderData.quantity, // New quantity from form
+      originalData[CONFIG.COLUMN_MAP.ITEM - 1] || '', // Item
+      originalMaterial || '', // Material
+      originalData[CONFIG.COLUMN_MAP.DUE_DATE - 1] || '', // Due Date
+      originalData[CONFIG.COLUMN_MAP.STRIKE_DATE - 1] || '', // Strike Date
+      originalData[CONFIG.COLUMN_MAP.VENUE - 1] || '', // Venue
+      originalData[CONFIG.COLUMN_MAP.LOCATION - 1] || '', // Location
+      originalData[CONFIG.COLUMN_MAP.ARTWORK - 1] || '', // Artwork URL
+      originalData[CONFIG.COLUMN_MAP.IMAGE_LINK - 1] || '', // Image Link
+      originalData[CONFIG.COLUMN_MAP.DOUBLE_SIDED - 1] || false, // Double Sided
+      originalData[CONFIG.COLUMN_MAP.DIECUT - 1] || false, // Diecut
+      '', // Production Status - empty
+      'Edit' // Edit column
+    ];
+    
+    // Write the new row
+    const range = sheet.getRange(newRow, 1, 1, rowData.length);
+    range.setValues([rowData]);
+    
+    // Set up checkboxes
+    sheet.getRange(newRow, CONFIG.COLUMN_MAP.DOUBLE_SIDED).insertCheckboxes();
+    sheet.getRange(newRow, CONFIG.COLUMN_MAP.DIECUT).insertCheckboxes();
+    
+    // Apply "New Asset" blue color
+    range.setFontColor('#0062e2');
+    
+    // Apply dropdown validations to the new row
+    projectSheet.applyDropdownsToRow(sheet, newRow);
+    
+    // Set up Edit cell formatting
+    const editCell = sheet.getRange(newRow, CONFIG.COLUMN_MAP.EDIT);
+    editCell.setBackground('#e3f2fd');
+    editCell.setFontColor('#1976d2');
+    editCell.setFontWeight('bold');
+    editCell.setNote(`Reordered from: ${originalAsset} (ID: ${originalId})\nCreated: ${new Date().toLocaleString()}`);
+    
+    // Log the reorder in the AssetLog
+    const logData = {
+      originalRowNumber: newRow,
+      reorderedFrom: originalId,
+      originalAsset: originalAsset,
+      newQuantity: reorderData.quantity
+    };
+    projectSheet.logFormData(logData, newRow, CONFIG.LOG_ID_PREFIX, CONFIG.LOG_SHEET_NAME);
+    
+    // Force sort to move "New Asset" to top
+    projectSheet.forceSort(sheet);
+    
+    return { 
+      success: true, 
+      message: `Asset reordered successfully! New ID: ${newId}`,
+      newId: newId,
+      rowNumber: newRow
+    };
+    
+  } catch (error) {
+    console.error('Error reordering asset:', error);
+    return { success: false, message: 'Error reordering asset: ' + error.message };
+  }
 }
